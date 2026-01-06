@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MetaMask JWT Demo</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 24px; }
+    .card { max-width: 720px; padding: 16px; border: 1px solid #ddd; border-radius: 12px; }
+    button { padding: 10px 14px; border-radius: 10px; border: 1px solid #333; background: #111; color: #fff; cursor: pointer; }
+    button.secondary { background: #fff; color: #111; border-color: #bbb; }
+    pre { background: #f6f6f6; padding: 12px; border-radius: 10px; overflow: auto; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .muted { color: #666; }
+    .ok { color: #0a7; }
+    .err { color: #c22; }
+    input { padding: 10px; border-radius: 10px; border: 1px solid #ccc; width: 320px; max-width: 100%; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Авторизация через MetaMask → JWT</h2>
+    <p class="muted">Backend по умолчанию: <code>http://localhost:8080</code></p>
+
+    <div class="row">
+      <input id="apiBase" placeholder="API base URL" value="http://localhost:8080" />
+      <button class="secondary" id="btnSave">Сохранить</button>
+    </div>
+
+    <hr />
+
+    <div id="authView">
+      <p id="mmStatus" class="muted">MetaMask: не проверено</p>
+      <div class="row">
+        <button id="btnConnect">Подключить MetaMask</button>
+        <button id="btnLogin">Войти (подписать nonce)</button>
+        <button class="secondary" id="btnLogout">Выйти</button>
+      </div>
+
+      <h3>Логи</h3>
+      <pre id="log"></pre>
+    </div>
+
+    <div id="appView" style="display:none;">
+      <p class="ok">Авторизация успешна ✅</p>
+      <div class="row">
+        <button class="secondary" id="btnRefresh">Обновить данные</button>
+        <button class="secondary" id="btnBack">Назад</button>
+      </div>
+
+      <h3>Кошелек</h3>
+      <pre id="walletInfo"></pre>
+    </div>
+  </div>
+
+  <!-- ethers v6 -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const logEl = $("log");
+    const mmStatus = $("mmStatus");
+    const walletInfo = $("walletInfo");
+
+    function log(...args) {
+      logEl.textContent += args.map(a => typeof a === "string" ? a : JSON.stringify(a, null, 2)).join(" ") + "\n";
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function apiBase() {
+      return $("apiBase").value.trim().replace(/\/+$/, "");
+    }
+
+    function setToken(t) {
+      if (t) localStorage.setItem("jwt", t);
+      else localStorage.removeItem("jwt");
+    }
+    function getToken() { return localStorage.getItem("jwt"); }
+
+    function showAppView(on) {
+      $("authView").style.display = on ? "none" : "block";
+      $("appView").style.display = on ? "block" : "none";
+    }
+
+    async function ensureMetaMask() {
+      if (!window.ethereum) {
+        mmStatus.className = "err";
+        mmStatus.textContent = "MetaMask не найден. Установи расширение/мобильный браузер с MetaMask.";
+        throw new Error("MetaMask not found");
+      }
+      mmStatus.className = "ok";
+      mmStatus.textContent = "MetaMask найден ✅";
+    }
+
+    async function connect() {
+      await ensureMetaMask();
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const accounts = await provider.send("eth_requestAccounts", []);
+      const address = ethers.getAddress(accounts[0]);
+      log("Connected address:", address);
+      return { provider, address };
+    }
+
+    async function login() {
+      const { provider, address } = await connect();
+      const signer = await provider.getSigner();
+
+      // 1) nonce + message с бэка
+      const nonceRes = await fetch(apiBase() + "/auth/nonce", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address })
+      });
+      if (!nonceRes.ok) throw new Error("nonce request failed: " + nonceRes.status);
+      const { nonce, message } = await nonceRes.json();
+      log("Nonce:", nonce);
+      log("Message to sign:\n" + message);
+
+      // 2) подпись
+      const signature = await signer.signMessage(message);
+      log("Signature:", signature);
+
+      // 3) логин → JWT
+      const loginRes = await fetch(apiBase() + "/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address, signature, message })
+      });
+      const body = await loginRes.json().catch(() => ({}));
+      if (!loginRes.ok) {
+        log("Login error:", body);
+        throw new Error(body.error || ("login failed: " + loginRes.status));
+      }
+
+      setToken(body.token);
+      log("JWT received, expires:", body.expires);
+      showAppView(true);
+
+      await loadWallet();
+    }
+
+    async function loadWallet() {
+      const token = getToken();
+      if (!token) {
+        walletInfo.textContent = "Нет токена. Авторизуйся.";
+        return;
+      }
+
+      const meRes = await fetch(apiBase() + "/me", {
+        headers: { "Authorization": "Bearer " + token }
+      });
+      const data = await meRes.json().catch(() => ({}));
+      if (!meRes.ok) {
+        walletInfo.textContent = "Ошибка /me: " + (data.error || meRes.status);
+        return;
+      }
+
+      walletInfo.textContent = JSON.stringify(data, null, 2);
+    }
+
+    function logout() {
+      setToken(null);
+      showAppView(false);
+      log("Logged out");
+    }
+
+    // UI handlers
+    $("btnSave").onclick = () => log("API base set to:", apiBase());
+    $("btnConnect").onclick = () => connect().catch(e => log("Connect error:", e.message));
+    $("btnLogin").onclick = () => login().catch(e => log("Login error:", e.message));
+    $("btnLogout").onclick = () => logout();
+    $("btnRefresh").onclick = () => loadWallet();
+    $("btnBack").onclick = () => showAppView(false);
+
+    // init
+    (async () => {
+      try { await ensureMetaMask(); } catch {}
+      if (getToken()) {
+        showAppView(true);
+        await loadWallet();
+      }
+    })();
+  </script>
+</body>
+</html>
