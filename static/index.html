@@ -1,184 +1,498 @@
 <!doctype html>
 <html lang="ru">
+
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MetaMask JWT Demo</title>
-  <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 24px; }
-    .card { max-width: 720px; padding: 16px; border: 1px solid #ddd; border-radius: 12px; }
-    button { padding: 10px 14px; border-radius: 10px; border: 1px solid #333; background: #111; color: #fff; cursor: pointer; }
-    button.secondary { background: #fff; color: #111; border-color: #bbb; }
-    pre { background: #f6f6f6; padding: 12px; border-radius: 10px; overflow: auto; }
-    .row { display: flex; gap: 10px; flex-wrap: wrap; }
-    .muted { color: #666; }
-    .ok { color: #0a7; }
-    .err { color: #c22; }
-    input { padding: 10px; border-radius: 10px; border: 1px solid #ccc; width: 320px; max-width: 100%; }
-  </style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SIWE + JWT (Gin)</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+            margin: 24px;
+        }
+
+        .card {
+            max-width: 840px;
+            padding: 16px;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+        }
+
+        button {
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            background: #111;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        button.secondary {
+            background: #fff;
+            color: #111;
+            border-color: #bbb;
+        }
+
+        pre {
+            background: #f6f6f6;
+            padding: 12px;
+            border-radius: 10px;
+            overflow: auto;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .muted {
+            color: #666;
+        }
+
+        .ok {
+            color: #0a7;
+        }
+
+        .err {
+            color: #c22;
+        }
+
+        input,
+        select {
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+        }
+
+        input {
+            width: 340px;
+            max-width: 100%;
+        }
+
+        select {
+            min-width: 220px;
+        }
+    </style>
 </head>
+
 <body>
-  <div class="card">
-    <h2>Авторизация через MetaMask → JWT</h2>
-    <p class="muted">Backend по умолчанию: <code>http://localhost:8080</code></p>
+    <div class="card">
+        <h2>SIWE (EIP-4361) → Access JWT + Refresh rotation</h2>
 
-    <div class="row">
-      <input id="apiBase" placeholder="API base URL" value="http://localhost:8080" />
-      <button class="secondary" id="btnSave">Сохранить</button>
+        <div class="row">
+            <input id="apiBase" placeholder="API base URL" value="http://localhost:8080" />
+            <button class="secondary" id="btnSave">Сохранить</button>
+        </div>
+
+        <div class="row" style="margin-top:10px;">
+            <label class="muted">Сеть:</label>
+            <select id="chainSelect"></select>
+            <span class="muted" id="mmNet"></span>
+        </div>
+
+        <hr />
+
+        <div id="authView">
+            <p id="mmStatus" class="muted">MetaMask: не проверено</p>
+            <div class="row">
+                <button id="btnConnect">Подключить MetaMask</button>
+                <button id="btnLogin">Войти (SIWE)</button>
+                <button class="secondary" id="btnLogout">Выйти</button>
+            </div>
+
+            <h3>Логи</h3>
+            <pre id="log"></pre>
+        </div>
+
+        <div id="appView" style="display:none;">
+            <p class="ok">Авторизация успешна ✅</p>
+            <div class="row">
+                <button class="secondary" id="btnRefresh">Обновить /me</button>
+                <button class="secondary" id="btnBack">Назад</button>
+                <button class="secondary" id="btnHardLogout">Logout (revoke refresh)</button>
+            </div>
+
+            <h3>Кошелек</h3>
+            <pre id="walletInfo"></pre>
+
+            <h3>Tokens</h3>
+            <pre id="tokenInfo"></pre>
+
+            <h3>Контакты</h3>
+            <div class="row">
+                <button id="btnAddContact" class="secondary">Добавить контакт</button>
+            </div>
+
+            <div id="contactForm" style="display:none; margin-top:10px;">
+                <div class="row">
+                    <input id="cName" placeholder="Name" />
+                    <input id="cAddress" placeholder="0x... address" />
+                </div>
+                <div class="row" style="margin-top:10px;">
+                    <input id="cNetwork" placeholder="network (e.g. mainnet/sepolia)" />
+                    <input id="cPubKey" placeholder="public_key (string/hex)" />
+                </div>
+                <div class="row" style="margin-top:10px;">
+                    <button id="btnSubmitContact">Сохранить</button>
+                    <button id="btnCancelContact" class="secondary">Отмена</button>
+                </div>
+                <pre id="contactResult"></pre>
+            </div>
+            <div class="row">
+                <button id="btnLoadContacts" class="secondary">Загрузить контакты</button>
+            </div>
+
+            <pre id="contactsList"></pre>
+
+
+        </div>
     </div>
 
-    <hr />
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+    <script>
+        const $ = (id) => document.getElementById(id);
 
-    <div id="authView">
-      <p id="mmStatus" class="muted">MetaMask: не проверено</p>
-      <div class="row">
-        <button id="btnConnect">Подключить MetaMask</button>
-        <button id="btnLogin">Войти (подписать nonce)</button>
-        <button class="secondary" id="btnLogout">Выйти</button>
-      </div>
+        const logEl = $("log");
+        const mmStatus = $("mmStatus");
+        const walletInfo = $("walletInfo");
+        const tokenInfo = $("tokenInfo");
+        const mmNet = $("mmNet");
+        const chainSelect = $("chainSelect");
 
-      <h3>Логи</h3>
-      <pre id="log"></pre>
-    </div>
+        function log(...args) {
+            logEl.textContent += args.map(a => typeof a === "string" ? a : JSON.stringify(a, null, 2)).join(" ") + "\n";
+            logEl.scrollTop = logEl.scrollHeight;
+        }
 
-    <div id="appView" style="display:none;">
-      <p class="ok">Авторизация успешна ✅</p>
-      <div class="row">
-        <button class="secondary" id="btnRefresh">Обновить данные</button>
-        <button class="secondary" id="btnBack">Назад</button>
-      </div>
+        function apiBase() {
+            return $("apiBase").value.trim().replace(/\/+$/, "");
+        }
 
-      <h3>Кошелек</h3>
-      <pre id="walletInfo"></pre>
-    </div>
-  </div>
+        const storage = {
+            setTokens(t) { localStorage.setItem("tokens", JSON.stringify(t)); },
+            getTokens() { try { return JSON.parse(localStorage.getItem("tokens") || "null"); } catch { return null; } },
+            clear() { localStorage.removeItem("tokens"); },
+        };
 
-  <!-- ethers v6 -->
-  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
-  <script>
-    const $ = (id) => document.getElementById(id);
-    const logEl = $("log");
-    const mmStatus = $("mmStatus");
-    const walletInfo = $("walletInfo");
+        function showAppView(on) {
+            $("authView").style.display = on ? "none" : "block";
+            $("appView").style.display = on ? "block" : "none";
+        }
 
-    function log(...args) {
-      logEl.textContent += args.map(a => typeof a === "string" ? a : JSON.stringify(a, null, 2)).join(" ") + "\n";
-      logEl.scrollTop = logEl.scrollHeight;
-    }
+        async function ensureMetaMask() {
+            if (!window.ethereum) {
+                mmStatus.className = "err";
+                mmStatus.textContent = "MetaMask не найден. Установи расширение/мобильный браузер с MetaMask.";
+                throw new Error("MetaMask not found");
+            }
+            mmStatus.className = "ok";
+            mmStatus.textContent = "MetaMask найден ✅";
+        }
 
-    function apiBase() {
-      return $("apiBase").value.trim().replace(/\/+$/, "");
-    }
+        function toHexChainId(chainId) {
+            return "0x" + BigInt(chainId).toString(16);
+        }
 
-    function setToken(t) {
-      if (t) localStorage.setItem("jwt", t);
-      else localStorage.removeItem("jwt");
-    }
-    function getToken() { return localStorage.getItem("jwt"); }
+        function chainLabel(chainId) {
+            const map = {
+                1: "Ethereum Mainnet (1)",
+                11155111: "Sepolia (11155111)",
+            };
+            return map[chainId] || ("Chain " + chainId);
+        }
 
-    function showAppView(on) {
-      $("authView").style.display = on ? "none" : "block";
-      $("appView").style.display = on ? "block" : "none";
-    }
+        async function loadSupportedChains() {
+            // Берем список chainId с backend (/chains), но красиво показываем известные сети
+            try {
+                const res = await fetch(apiBase() + "/chains");
+                const data = await res.json();
+                const ids = (data.chains || []).map(x => Number(x.chainId)).filter(Boolean);
 
-    async function ensureMetaMask() {
-      if (!window.ethereum) {
-        mmStatus.className = "err";
-        mmStatus.textContent = "MetaMask не найден. Установи расширение/мобильный браузер с MetaMask.";
-        throw new Error("MetaMask not found");
-      }
-      mmStatus.className = "ok";
-      mmStatus.textContent = "MetaMask найден ✅";
-    }
+                chainSelect.innerHTML = "";
+                if (ids.length === 0) throw new Error("no chains from backend");
 
-    async function connect() {
-      await ensureMetaMask();
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const accounts = await provider.send("eth_requestAccounts", []);
-      const address = ethers.getAddress(accounts[0]);
-      log("Connected address:", address);
-      return { provider, address };
-    }
+                for (const id of ids.sort((a, b) => a - b)) {
+                    const opt = document.createElement("option");
+                    opt.value = String(id);
+                    opt.textContent = chainLabel(id);
+                    chainSelect.appendChild(opt);
+                }
+            } catch (e) {
+                // fallback
+                chainSelect.innerHTML = `
+          <option value="1">Ethereum Mainnet (1)</option>
+          <option value="11155111">Sepolia (11155111)</option>
+        `;
+                log("Could not load /chains, using fallback list:", e.message);
+            }
+        }
 
-    async function login() {
-      const { provider, address } = await connect();
-      const signer = await provider.getSigner();
+        const contactResult = document.getElementById("contactResult");
 
-      // 1) nonce + message с бэка
-      const nonceRes = await fetch(apiBase() + "/auth/nonce", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address })
-      });
-      if (!nonceRes.ok) throw new Error("nonce request failed: " + nonceRes.status);
-      const { nonce, message } = await nonceRes.json();
-      log("Nonce:", nonce);
-      log("Message to sign:\n" + message);
+        async function addContactWithAutoRefresh(payload) {
+            let res = await apiFetch("/contacts", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
 
-      // 2) подпись
-      const signature = await signer.signMessage(message);
-      log("Signature:", signature);
+            if (res.status === 401) {
+                log("Access expired -> refreshing (contacts)...");
+                await refreshTokens();
+                res = await apiFetch("/contacts", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+            }
 
-      // 3) логин → JWT
-      const loginRes = await fetch(apiBase() + "/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address, signature, message })
-      });
-      const body = await loginRes.json().catch(() => ({}));
-      if (!loginRes.ok) {
-        log("Login error:", body);
-        throw new Error(body.error || ("login failed: " + loginRes.status));
-      }
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(body.error || ("contacts failed: " + res.status));
+            return body;
+        }
 
-      setToken(body.token);
-      log("JWT received, expires:", body.expires);
-      showAppView(true);
 
-      await loadWallet();
-    }
+        async function getMMChainId(provider) {
+            const net = await provider.getNetwork();
+            return Number(net.chainId);
+        }
 
-    async function loadWallet() {
-      const token = getToken();
-      if (!token) {
-        walletInfo.textContent = "Нет токена. Авторизуйся.";
-        return;
-      }
+        async function connect() {
+            await ensureMetaMask();
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const accounts = await provider.send("eth_requestAccounts", []);
+            const address = ethers.getAddress(accounts[0]);
+            const currentChainId = await getMMChainId(provider);
+            mmNet.textContent = `MetaMask chainId: ${currentChainId}`;
+            log("Connected:", address, "chainId:", currentChainId);
+            return { provider, address, currentChainId };
+        }
 
-      const meRes = await fetch(apiBase() + "/me", {
-        headers: { "Authorization": "Bearer " + token }
-      });
-      const data = await meRes.json().catch(() => ({}));
-      if (!meRes.ok) {
-        walletInfo.textContent = "Ошибка /me: " + (data.error || meRes.status);
-        return;
-      }
+        async function switchChainIfNeeded(targetChainId) {
+            await ensureMetaMask();
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const current = await getMMChainId(provider);
+            if (current === targetChainId) return;
 
-      walletInfo.textContent = JSON.stringify(data, null, 2);
-    }
+            try {
+                await window.ethereum.request({
+                    method: "wallet_switchEthereumChain",
+                    params: [{ chainId: toHexChainId(targetChainId) }]
+                });
+            } catch (e) {
+                // 4902 - сеть не добавлена
+                log("Switch chain error:", e?.code, e?.message || e);
+                throw new Error("Не удалось переключить сеть в MetaMask. Добавь сеть вручную или выбери другую.");
+            }
+        }
 
-    function logout() {
-      setToken(null);
-      showAppView(false);
-      log("Logged out");
-    }
+        async function siweLogin() {
+            const targetChainId = Number(chainSelect.value);
+            await switchChainIfNeeded(targetChainId);
 
-    // UI handlers
-    $("btnSave").onclick = () => log("API base set to:", apiBase());
-    $("btnConnect").onclick = () => connect().catch(e => log("Connect error:", e.message));
-    $("btnLogin").onclick = () => login().catch(e => log("Login error:", e.message));
-    $("btnLogout").onclick = () => logout();
-    $("btnRefresh").onclick = () => loadWallet();
-    $("btnBack").onclick = () => showAppView(false);
+            const { provider, address } = await connect();
+            const signer = await provider.getSigner();
 
-    // init
-    (async () => {
-      try { await ensureMetaMask(); } catch {}
-      if (getToken()) {
-        showAppView(true);
-        await loadWallet();
-      }
-    })();
-  </script>
+            // 1) init -> nonce + message
+            const initRes = await fetch(apiBase() + "/auth/siwe/init", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ address, chainId: targetChainId })
+            });
+            const initBody = await initRes.json().catch(() => ({}));
+            if (!initRes.ok) {
+                log("SIWE init error:", initBody);
+                throw new Error(initBody.error || "siwe init failed");
+            }
+
+            log("SIWE message:\n" + initBody.message);
+
+            // 2) sign
+            const signature = await signer.signMessage(initBody.message);
+            log("Signature:", signature);
+
+            // 3) verify -> tokens
+            const verRes = await fetch(apiBase() + "/auth/siwe/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: initBody.message, signature })
+            });
+            const verBody = await verRes.json().catch(() => ({}));
+            if (!verRes.ok) {
+                log("SIWE verify error:", verBody);
+                throw new Error(verBody.error || "siwe verify failed");
+            }
+
+            storage.setTokens(verBody);
+            showAppView(true);
+            renderTokens();
+            await loadMeWithAutoRefresh();
+        }
+
+        function renderTokens() {
+            const t = storage.getTokens();
+            tokenInfo.textContent = t ? JSON.stringify({
+                address: t.address,
+                chainId: t.chainId,
+                accessExpires: t.accessExpires,
+                refreshExpires: t.refreshExpires,
+                accessTokenPrefix: (t.accessToken || "").slice(0, 24) + "...",
+                refreshTokenPrefix: (t.refreshToken || "").slice(0, 16) + "..."
+            }, null, 2) : "No tokens";
+        }
+
+        async function apiFetch(path, opts = {}) {
+            const t = storage.getTokens();
+            const headers = Object.assign({}, opts.headers || {});
+            if (t?.accessToken) headers["Authorization"] = "Bearer " + t.accessToken;
+            return fetch(apiBase() + path, Object.assign({}, opts, { headers }));
+        }
+
+        async function refreshTokens() {
+            const t = storage.getTokens();
+            if (!t?.refreshToken) throw new Error("no refresh token");
+
+            const res = await fetch(apiBase() + "/auth/refresh", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ refreshToken: t.refreshToken })
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(body.error || "refresh failed");
+
+            // сохраняем новые токены (rotation!)
+            const merged = Object.assign({}, t, body);
+            storage.setTokens(merged);
+            renderTokens();
+            return merged;
+        }
+
+        async function loadMeWithAutoRefresh() {
+            let res = await apiFetch("/me");
+            if (res.status === 401) {
+                log("Access expired -> refreshing...");
+                await refreshTokens();
+                res = await apiFetch("/me");
+            }
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                walletInfo.textContent = "Ошибка /me: " + (body.error || res.status);
+                return;
+            }
+            walletInfo.textContent = JSON.stringify(body, null, 2);
+        }
+
+        const contactsList = document.getElementById("contactsList");
+
+        async function loadContactsWithAutoRefresh() {
+            let res = await apiFetch("/contacts");
+
+            if (res.status === 401) {
+                log("Access expired -> refreshing (get contacts)...");
+                await refreshTokens();
+                res = await apiFetch("/contacts");
+            }
+
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(body.error || ("get contacts failed: " + res.status));
+
+            contactsList.textContent = JSON.stringify(body, null, 2);
+            return body;
+        }
+
+
+        async function revokeRefreshAndLogout() {
+            const t = storage.getTokens();
+            if (t?.refreshToken) {
+                await fetch(apiBase() + "/auth/logout", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ refreshToken: t.refreshToken })
+                }).catch(() => { });
+            }
+            storage.clear();
+            showAppView(false);
+            renderTokens();
+            walletInfo.textContent = "";
+            log("Logged out (refresh revoked)");
+        }
+
+        function softLogout() {
+            storage.clear();
+            showAppView(false);
+            renderTokens();
+            walletInfo.textContent = "";
+            log("Logged out (local only)");
+        }
+
+
+        // UI handlers
+        $("btnSave").onclick = () => log("API base set to:", apiBase());
+        $("btnConnect").onclick = () => connect().catch(e => log("Connect error:", e.message));
+        $("btnLogin").onclick = () => siweLogin().catch(e => log("Login error:", e.message));
+        $("btnLogout").onclick = () => softLogout();
+        $("btnHardLogout").onclick = () => revokeRefreshAndLogout().catch(e => log("Logout error:", e.message));
+        $("btnRefresh").onclick = () => loadMeWithAutoRefresh();
+        $("btnBack").onclick = () => showAppView(false);
+        const contactForm = document.getElementById("contactForm");
+
+        document.getElementById("btnLoadContacts").onclick = () =>
+            loadContactsWithAutoRefresh().catch(e => {
+                contactsList.textContent = "Error: " + e.message;
+                log("Load contacts error:", e.message);
+            });
+
+
+        document.getElementById("btnAddContact").onclick = () => {
+            contactForm.style.display = "block";
+            contactResult.textContent = "";
+        };
+
+        document.getElementById("btnCancelContact").onclick = () => {
+            contactForm.style.display = "none";
+            contactResult.textContent = "";
+        };
+
+        document.getElementById("btnSubmitContact").onclick = async () => {
+            try {
+                const payload = {
+                    name: document.getElementById("cName").value.trim(),
+                    address: document.getElementById("cAddress").value.trim(),
+                    network: document.getElementById("cNetwork").value.trim(),
+                    public_key: document.getElementById("cPubKey").value.trim(),
+                };
+
+                const out = await addContactWithAutoRefresh(payload);
+                await loadContactsWithAutoRefresh();
+
+                contactResult.textContent = JSON.stringify(out, null, 2);
+                log("Contact added:", out.contact_addr);
+            } catch (e) {
+                contactResult.textContent = "Error: " + e.message;
+                log("Add contact error:", e.message);
+            }
+        };
+
+
+        // init
+        (async () => {
+            await loadSupportedChains();
+            try { await ensureMetaMask(); } catch { }
+
+            const t = storage.getTokens();
+            if (t?.accessToken) {
+                showAppView(true);
+                renderTokens();
+                await loadMeWithAutoRefresh();
+            } else {
+                renderTokens();
+            }
+
+            chainSelect.onchange = () => log("Selected chainId:", chainSelect.value);
+        })();
+    </script>
 </body>
+
 </html>
