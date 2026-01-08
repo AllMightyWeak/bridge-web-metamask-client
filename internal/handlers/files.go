@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"testMM/internal/cryptoenc"
@@ -154,6 +155,9 @@ func (h *Handlers) SendFile(c *gin.Context) {
 	// 4) CID -> tokenURI
 	//    Обычно для NFT используют ipfs://CID
 	tokenURI := "ipfs://" + up.Data.Cid
+	if nameEnc != "" {
+		tokenURI = tokenURI + "?name=" + url.QueryEscape(nameEnc)
+	}
 
 	// 5) Формируем calldata для createToken(owner, tokenURI)
 	nftAddrStr := strings.TrimSpace(os.Getenv("NFT_ADDR"))

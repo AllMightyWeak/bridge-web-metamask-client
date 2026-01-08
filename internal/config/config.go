@@ -22,19 +22,26 @@ type Config struct {
 
 	PgDSN           string
 	BridgeByNetwork map[string]string
+
+	WNFTRpcURL      string
+	WNFTAddr        string
+	NFTScanInterval time.Duration
 }
 
 func LoadConfig() (Config, error) {
 	get := func(k string) string { return strings.TrimSpace(os.Getenv(k)) }
 
 	cfg := Config{
-		ListenAddr:    firstNonEmpty(get("LISTEN_ADDR"), ":8080"),
-		AccessSecret:  get("JWT_ACCESS_SECRET"),
-		AccessTTL:     parseDurationDefault(get("ACCESS_TTL"), 15*time.Minute),
-		NonceTTL:      parseDurationDefault(get("NONCE_TTL"), 5*time.Minute),
-		RefreshTTL:    parseDurationDefault(get("REFRESH_TTL"), 7*24*time.Hour),
-		AllowedOrigin: make(map[string]struct{}),
-		RPCByChainID:  make(map[uint64]string),
+		ListenAddr:      firstNonEmpty(get("LISTEN_ADDR"), ":8080"),
+		AccessSecret:    get("JWT_ACCESS_SECRET"),
+		AccessTTL:       parseDurationDefault(get("ACCESS_TTL"), 15*time.Minute),
+		NonceTTL:        parseDurationDefault(get("NONCE_TTL"), 5*time.Minute),
+		RefreshTTL:      parseDurationDefault(get("REFRESH_TTL"), 7*24*time.Hour),
+		AllowedOrigin:   make(map[string]struct{}),
+		RPCByChainID:    make(map[uint64]string),
+		WNFTRpcURL:      get("WNFT_RPC_URL"),
+		WNFTAddr:        get("WNFT_ADDR"),
+		NFTScanInterval: parseDurationDefault(get("NFT_SCAN_INTERVAL"), 15*time.Second),
 
 		PgDSN: get("PG_DSN"),
 	}

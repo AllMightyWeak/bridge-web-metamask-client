@@ -97,6 +97,31 @@
     .small {
       font-size: 12px;
     }
+
+    .nft-card {
+      margin-top: 10px;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    .nft-actions {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    a.download {
+      display: inline-block;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid #bbb;
+      background: #fff;
+      color: #111;
+      text-decoration: none;
+    }
   </style>
 </head>
 
@@ -199,6 +224,16 @@
       </div>
 
       <pre id="fileResult"></pre>
+      <hr />
+      <h3>Мои NFT (полученные документы)</h3>
+
+      <div class="row">
+        <button id="btnLoadNfts" class="secondary" type="button">Обновить список NFT</button>
+      </div>
+
+      <pre id="nftsList"></pre>
+      <div id="nftsCards"></div>
+
     </div>
   </div>
 
@@ -351,6 +386,10 @@
       renderTokens();
       await loadMeWithAutoRefresh();
       await loadContactsWithAutoRefresh().catch(() => { }); // заполнит селект
+      await loadNFTsWithAutoRefresh().catch(() => { });
+      await loadContactsWithAutoRefresh().catch(() => { });
+      startNftPolling();
+
     }
 
     function renderTokens() {
@@ -404,6 +443,38 @@
       }
       walletInfo.textContent = JSON.stringify(body, null, 2);
     }
+
+    let nftPollTimer = null;
+
+    function startNftPolling() {
+      stopNftPolling(); // чтобы не создать 2 таймера
+
+      // первый запрос сразу
+      loadNFTsWithAutoRefresh().catch(() => { });
+
+      nftPollTimer = setInterval(() => {
+        // не спамим, когда вкладка скрыта
+        if (document.visibilityState !== "visible") return;
+
+        loadNFTsWithAutoRefresh().catch(() => { });
+      }, 15000); // 15 секунд (можешь поставить 5-10)
+    }
+
+    function stopNftPolling() {
+      if (nftPollTimer) {
+        clearInterval(nftPollTimer);
+        nftPollTimer = null;
+      }
+    }
+
+    // если пользователь вернулся на вкладку — обновим сразу
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        const t = storage.getTokens();
+        if (t?.accessToken) loadNFTsWithAutoRefresh().catch(() => { });
+      }
+    });
+
 
     // ---------- Contacts ----------
     const contactResult = $("contactResult");
@@ -466,6 +537,85 @@
       return body;
     }
 
+    const nftsList = $("nftsList");
+    const nftsCards = $("nftsCards");
+
+    async function loadNFTsWithAutoRefresh() {
+      let res = await apiFetch("/nfts");
+      if (res.status === 401) {
+        log("Access expired -> refreshing (nfts)...");
+        await refreshTokens();
+        res = await apiFetch("/nfts");
+      }
+
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || ("get nfts failed: " + res.status));
+
+      // сырой JSON (для дебага)
+      nftsList.textContent = JSON.stringify(body, null, 2);
+
+      renderNFTCards(body.owner, body.nfts || [], body.error || "");
+      return body;
+    }
+    function safeName(item) {
+      // бэк уже делает fallback, но на фронте подстрахуемся
+      const n = (item?.name || "").trim();
+      if (n) return n;
+      const u = (item?.tokenURI || "").trim();
+      return u || "document.enc";
+    }
+
+    function renderNFTCards(owner, items, err) {
+      nftsCards.innerHTML = "";
+
+      if (err) {
+        const div = document.createElement("div");
+        div.className = "err";
+        div.textContent = "Watcher error: " + err;
+        nftsCards.appendChild(div);
+      }
+
+      if (!items.length) {
+        const div = document.createElement("div");
+        div.className = "muted";
+        div.textContent = "NFT не найдены (или watcher ещё не успел просканировать).";
+        nftsCards.appendChild(div);
+        return;
+      }
+
+      for (const it of items) {
+        const card = document.createElement("div");
+        card.className = "nft-card";
+
+        const name = safeName(it);
+        const tokenId = it.tokenId || "";
+        const tokenURI = it.tokenURI || "";
+        const dl = it.downloadUrl || tokenURI || "";
+
+        card.innerHTML = `
+      <div><b>Name:</b> ${escapeHtml(name)}</div>
+      <div><b>TokenID:</b> ${escapeHtml(String(tokenId))}</div>
+      <div><b>TokenURI:</b> <span class="muted">${escapeHtml(tokenURI)}</span></div>
+      <div class="nft-actions">
+        <a class="download" href="${escapeAttr(dl)}" download="${escapeAttr(name)}" target="_blank" rel="noreferrer">
+          Скачать
+        </a>
+      </div>
+    `;
+
+        nftsCards.appendChild(card);
+      }
+    }
+
+    // простые экранирования
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+      }[c]));
+    }
+    function escapeAttr(s) { return escapeHtml(s); }
+
+
     // ---------- Logout ----------
     async function revokeRefreshAndLogout() {
       const t = storage.getTokens();
@@ -479,6 +629,7 @@
       storage.clear();
       showAppView(false);
       renderTokens();
+      stopNftPolling();
       walletInfo.textContent = "";
       contactsList.textContent = "";
       fileResetUI();
@@ -489,6 +640,7 @@
       storage.clear();
       showAppView(false);
       renderTokens();
+      stopNftPolling();
       walletInfo.textContent = "";
       contactsList.textContent = "";
       fileResetUI();
@@ -701,6 +853,12 @@
     $("btnHardLogout").onclick = () => revokeRefreshAndLogout().catch(e => log("Logout error:", e.message));
     $("btnRefresh").onclick = () => loadMeWithAutoRefresh();
     $("btnBack").onclick = () => showAppView(false);
+    $("btnLoadNfts").onclick = () =>
+      loadNFTsWithAutoRefresh().catch(e => {
+        nftsList.textContent = "Error: " + e.message;
+        log("Load nfts error:", e.message);
+      });
+
 
     const contactForm = $("contactForm");
 
@@ -751,6 +909,7 @@
         renderTokens();
         await loadMeWithAutoRefresh();
         await loadContactsWithAutoRefresh().catch(() => { });
+        startNftPolling();
       } else {
         renderTokens();
       }

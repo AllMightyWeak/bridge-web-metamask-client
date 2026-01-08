@@ -24,4 +24,5 @@ func RegisterRoutes(r *gin.Engine, h *handlers.Handlers, mw *middleware.Set) {
 	protected.POST("/contacts", h.AddContact)
 	protected.GET("/contacts", h.GetContacts)
 	protected.POST("/files/send", h.SendFile)
+	protected.GET("/nfts", h.GetNFTs)
 }

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
 )
 
@@ -69,6 +70,8 @@ func (h *Handlers) SiweVerify(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
+
+	h.NftWatcher.Register(common.HexToAddress(vr.Address))
 
 	// по требованию: подключение к Postgres после успешной авторизации
 	if _, err := h.PG.Pool(c.Request.Context()); err != nil {
