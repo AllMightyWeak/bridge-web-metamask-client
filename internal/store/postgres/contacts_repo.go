@@ -61,3 +61,20 @@ func (r *contactsRepo) List(ctx context.Context, userPubKey string) ([]store.Con
 	}
 	return out, nil
 }
+
+func (r *contactsRepo) GetContactPubKey(ctx context.Context, userPubKey, contactAddr string) (string, error) {
+	pool, err := r.pg.Pool(ctx)
+	if err != nil {
+		return "", err
+	}
+	var pub string
+	err = pool.QueryRow(ctx,
+		`select contact_pub_key
+		 from contacts
+		 where user_pub_key = $1 and contact_addr = $2
+		 limit 1`,
+		strings.ToLower(userPubKey),
+		strings.ToLower(contactAddr),
+	).Scan(&pub)
+	return pub, err
+}

@@ -12,4 +12,5 @@ type Contact struct {
 type ContactsRepo interface {
 	Insert(ctx context.Context, userPubKey, contactPubKey, contactAddr, contactName, contactNetwork string) error
 	List(ctx context.Context, userPubKey string) ([]Contact, error)
+	GetContactPubKey(ctx context.Context, userPubKey, contactAddr string) (string, error)
 }
