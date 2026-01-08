@@ -62,19 +62,47 @@ func (r *contactsRepo) List(ctx context.Context, userPubKey string) ([]store.Con
 	return out, nil
 }
 
-func (r *contactsRepo) GetContactPubKey(ctx context.Context, userPubKey, contactAddr string) (string, error) {
-	pool, err := r.pg.Pool(ctx)
-	if err != nil {
-		return "", err
-	}
-	var pub string
-	err = pool.QueryRow(ctx,
-		`select contact_pub_key
-		 from contacts
-		 where user_pub_key = $1 and contact_addr = $2
-		 limit 1`,
+// func (r *contactsRepo) GetContactKeyInfo(ctx context.Context, userPubKey, contactAddr string) (store.ContactKeyInfo, error) {
+// pool, err := r.pg.Pool(ctx)
+// if err != nil {
+// 	return nil, err
+// }
+// 	var out store.ContactKeyInfo
+// 	err = pool.QueryRow(ctx,
+// 		`select contact_pub_key, contact_network
+//          from contacts
+//          where user_pub_key=$1 and contact_addr=$2`,
+// 		strings.ToLower(userPubKey),
+// 		strings.ToLower(contactAddr),
+// 	).Scan(&out.PubKey, &out.Network)
+// 	return out, err
+// }
+
+// func (r *contactsRepo) GetContactKeyInfo(ctx context.Context, userPubKey, contactAddr string) (store.ContactKeyInfo, error) {
+// 	pool, err := r.pg.Pool(ctx)
+// 	if err != nil {
+// 		return store.ContactKeyInfo{}, err
+// 	}
+
+// 	var out store.ContactKeyInfo
+// 	err = pool.QueryRow(ctx,
+// 		`select contact_pub_key, contact_network
+//          from contacts
+//          where user_pub_key=$1 and contact_addr=$2`,
+// 		strings.ToLower(userPubKey),
+// 		strings.ToLower(contactAddr),
+// 	).Scan(&out.PubKey, &out.Network)
+// 	return out, err
+// }
+
+func (r *contactsRepo) GetContactKeyInfo(ctx context.Context, userPubKey, contactAddr string) (store.ContactKeyInfo, error) {
+	var out store.ContactKeyInfo
+	err := r.pg.pool.QueryRow(ctx,
+		`select contact_pub_key, contact_network
+         from contacts
+         where user_pub_key=$1 and contact_addr=$2`,
 		strings.ToLower(userPubKey),
 		strings.ToLower(contactAddr),
-	).Scan(&pub)
-	return pub, err
+	).Scan(&out.PubKey, &out.Network)
+	return out, err
 }

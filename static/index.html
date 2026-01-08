@@ -604,47 +604,77 @@
         btnSendFile.disabled = true;
         fileResult.textContent = "Uploading...";
         const out = await sendFileWithAutoRefresh(recipient, selectedFile);
-        // после out = await sendFileWithAutoRefresh(...)
-        if (out?.tx?.to && out?.tx?.data) {
-          // 1) убедиться, что сеть совпадает
-          const targetChainId = Number(out.tx.chainId);
-          await switchChainIfNeeded(targetChainId);
 
-          // 2) отправляем транзакцию через MetaMask
-          await ensureMetaMask();
-          const provider = new ethers.BrowserProvider(window.ethereum);
-          const signer = await provider.getSigner();
+        const nftAbiMinimal = [
+          "function approve(address to, uint256 tokenId)",
+          "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)"
+        ];
+        const bridgeAbiMinimal = [
+          "function transferNFTToContract(address _nftContract, address ownerAddressInChainB, uint256 _tokenId) returns (bool)",
+          "event TokenLocked(uint256 tokenId, address sender, address addressInChainB, string tokenURIValue)"
+        ];
+        // 1) Mint
+        await switchChainIfNeeded(Number(out.tx.chainId));
+        await ensureMetaMask();
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
 
-          // В ethers v6 sendTransaction принимает {to, data, value}
-          const txResp = await signer.sendTransaction({
-            to: out.tx.to,
-            data: out.tx.data,
-            value: 0n,
-          });
+        const mintTx = await signer.sendTransaction({
+          to: out.tx.to,
+          data: out.tx.data,
+          value: 0n,
+        });
 
-          log("Mint tx sent:", txResp.hash);
+        log("Mint tx sent:", mintTx.hash);
+        const mintReceipt = await mintTx.wait();
+        log("Mint confirmed:", mintReceipt.blockNumber);
 
-          const receipt = await txResp.wait();
-          log("Mint confirmed in block:", receipt.blockNumber);
+        // 2) Extract tokenId from Transfer
+        const iface = new ethers.Interface(nftAbiMinimal);
+        let tokenId = null;
 
-          // 3) (опционально) вытащить tokenId из Transfer event (from=0x0 -> to=sender)
-          //    У твоего контракта событие стандартное ERC721 Transfer.
-          const iface = new ethers.Interface([
-            "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)"
-          ]);
-          let tokenId = null;
-          for (const lg of receipt.logs) {
-            try {
-              const parsed = iface.parseLog(lg);
-              if (parsed?.name === "Transfer") {
-                tokenId = parsed.args.tokenId?.toString?.() || String(parsed.args.tokenId);
-              }
-            } catch (_) { }
-          }
-          if (tokenId) {
-            log("Minted tokenId:", tokenId);
-          }
+        for (const lg of mintReceipt.logs) {
+          try {
+            const parsed = iface.parseLog(lg);
+            if (parsed?.name === "Transfer") {
+              // minted token -> Transfer(0x0, msg.sender, tokenId)
+              tokenId = parsed.args.tokenId.toString();
+              break;
+            }
+          } catch (_) { }
         }
+
+        if (!tokenId) throw new Error("Could not extract tokenId from mint receipt");
+
+        log("Minted tokenId:", tokenId);
+
+        // 3) Approve bridge (MetaMask tx #2)
+        const bridgeAddr = out.approve.bridgeAddr;
+        if (!bridgeAddr) throw new Error("Missing approve.bridgeAddr from backend");
+
+        const nft = new ethers.Contract(out.tx.to, nftAbiMinimal, signer);
+        const approveTx = await nft.approve(bridgeAddr, tokenId);
+        log("Approve tx sent:", approveTx.hash);
+
+        const approveReceipt = await approveTx.wait();
+        log("Approve confirmed:", approveReceipt.blockNumber);
+
+        // 4) Transfer to bridge (MetaMask tx #3)
+        const transferBridgeAddr = out.transfer?.bridgeAddr || out.approve?.bridgeAddr;
+        if (!transferBridgeAddr) throw new Error("Missing bridgeAddr for transfer");
+
+
+        const ownerInB = (out.transfer?.ownerAddressInChainB || recipient).trim(); // fallback
+        if (!ownerInB) throw new Error("Missing ownerAddressInChainB");
+
+        const bridge = new ethers.Contract(transferBridgeAddr, bridgeAbiMinimal, signer);
+
+        const transferTx = await bridge.transferNFTToContract(out.tx.to, ownerInB, tokenId);
+        log("Transfer tx sent:", transferTx.hash);
+
+        const transferReceipt = await transferTx.wait();
+        log("Transfer confirmed:", transferReceipt.blockNumber);
+
 
         fileResult.textContent = JSON.stringify(out, null, 2);
         log("File uploaded:", out);

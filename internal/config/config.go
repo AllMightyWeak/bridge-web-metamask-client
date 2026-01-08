@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type Config struct {
@@ -18,7 +20,8 @@ type Config struct {
 	AllowedOrigin map[string]struct{} // exact origins allowlist, e.g. http://localhost:5173
 	RPCByChainID  map[uint64]string   // chainId -> rpc url
 
-	PgDSN string
+	PgDSN           string
+	BridgeByNetwork map[string]string
 }
 
 func LoadConfig() (Config, error) {
@@ -74,6 +77,26 @@ func LoadConfig() (Config, error) {
 			return Config{}, fmt.Errorf("empty rpc url for chain %d", chainID)
 		}
 		cfg.RPCByChainID[chainID] = url
+	}
+
+	// BRIDGE_BY_NETWORK="sepolia=0x...;mainnet=0x..."
+	bridges := get("BRIDGE_BY_NETWORK")
+	cfg.BridgeByNetwork = make(map[string]string)
+	for _, pair := range strings.Split(bridges, ";") {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+		kv := strings.SplitN(pair, "=", 2)
+		if len(kv) != 2 {
+			return Config{}, fmt.Errorf("bad BRIDGE_BY_NETWORK pair: %q", pair)
+		}
+		net := strings.TrimSpace(kv[0])
+		addr := strings.TrimSpace(kv[1])
+		if net == "" || !common.IsHexAddress(addr) {
+			return Config{}, fmt.Errorf("bad bridge mapping: %q", pair)
+		}
+		cfg.BridgeByNetwork[strings.ToLower(net)] = common.HexToAddress(addr).Hex()
 	}
 
 	return cfg, nil

@@ -38,14 +38,27 @@ type TxRequest struct {
 	ChainID uint64 `json:"chainId"` // чтобы фронт мог проверить сеть
 }
 
+type ApprovePlan struct {
+	BridgeAddr string `json:"bridgeAddr"`
+	Network    string `json:"network"`
+}
+
+type TransferPlan struct {
+	BridgeAddr      string `json:"bridgeAddr"`           // адрес bridge на текущей сети
+	OwnerAddressInB string `json:"ownerAddressInChainB"` // получатель в сети B (адрес)
+	Network         string `json:"network"`              // contact_network (для отладки/UI)
+}
+
 type SendFileResp struct {
-	Cid       string    `json:"cid"`
-	Name      string    `json:"name"`
-	Size      int       `json:"size"`
-	CreatedAt string    `json:"created_at"`
-	Gateway   string    `json:"gateway,omitempty"`
-	TokenURI  string    `json:"token_uri"`
-	Tx        TxRequest `json:"tx"` // ✅ готовая транзакция для MetaMask
+	Cid       string       `json:"cid"`
+	Name      string       `json:"name"`
+	Size      int          `json:"size"`
+	CreatedAt string       `json:"created_at"`
+	Gateway   string       `json:"gateway,omitempty"`
+	TokenURI  string       `json:"token_uri"`
+	Tx        TxRequest    `json:"tx"` // ✅ готовая транзакция для MetaMask
+	Approve   ApprovePlan  `json:"approve"`
+	Transfer  TransferPlan `json:"transfer"`
 }
 
 // POST /files/send (protected)
@@ -79,7 +92,7 @@ func (h *Handlers) SendFile(c *gin.Context) {
 	}
 
 	// 1) достаем public key получателя из contacts текущего юзера
-	pubKeyStr, err := h.Contacts.GetContactPubKey(
+	info, err := h.Contacts.GetContactKeyInfo(
 		c.Request.Context(),
 		strings.ToLower(sender),
 		strings.ToLower(recipient),
@@ -93,7 +106,14 @@ func (h *Handlers) SendFile(c *gin.Context) {
 		return
 	}
 
-	pubECDSA, err := parsePubKey(pubKeyStr)
+	netKey := strings.ToLower(strings.TrimSpace(info.Network))
+	bridgeAddr, ok := h.Cfg.BridgeByNetwork[netKey]
+	if !ok {
+		c.JSON(400, gin.H{"error": "bridge is not configured for network: " + info.Network})
+		return
+	}
+
+	pubECDSA, err := parsePubKey(info.PubKey)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad recipient public key: " + err.Error()})
 		return
@@ -155,6 +175,8 @@ func (h *Handlers) SendFile(c *gin.Context) {
 		return
 	}
 
+	ownerB := strings.ToLower(strings.TrimSpace(recipient))
+
 	// 6) Возвращаем tx request для MetaMask
 	c.JSON(http.StatusOK, SendFileResp{
 		Cid:       up.Data.Cid,
@@ -169,6 +191,15 @@ func (h *Handlers) SendFile(c *gin.Context) {
 			Data:    "0x" + hex.EncodeToString(data),
 			Value:   "0x0",
 			ChainID: chainID,
+		},
+		Approve: ApprovePlan{
+			BridgeAddr: bridgeAddr,
+			Network:    info.Network,
+		},
+		Transfer: TransferPlan{
+			BridgeAddr:      bridgeAddr,
+			OwnerAddressInB: ownerB,
+			Network:         info.Network,
 		},
 	})
 }
