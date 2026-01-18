@@ -2,7 +2,7 @@
 FROM golang:1.25-alpine AS build
 WORKDIR /app
 
-# RUN apk add --no-cache git ca-certificates
+RUN apk add --no-cache git ca-certificates
 COPY go.mod go.sum ./
 RUN go mod download
 
