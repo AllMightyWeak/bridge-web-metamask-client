@@ -1,0 +1,1425 @@
+<!doctype html>
+<html lang="ru">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ГОСТ-веб3-мост</title>
+  <style>
+    :root {
+      --bg: #f6f8fc;
+      --card: #ffffff;
+      --line: #e7ecf3;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #1e63ff;
+      --primary-2: #0b4dde;
+      --danger: #e11d48;
+      --shadow: 0 10px 30px rgba(15, 23, 42, 0.07);
+      --radius: 16px;
+
+      /* New */
+      --active-bg: #eef5ff;
+      --active-border: #b7ccff;
+      --msg-bg: #eaf4ff;
+      --msg-border: #cfe3ff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ---------- Auth screen ---------- */
+.auth-wrap {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.auth-card {
+  width: min(520px, 100%);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 22px;
+
+  /* центрируем все внутри карточки */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.auth-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.auth-sub {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: center;
+  max-width: 440px;
+}
+
+.row {
+  width: 100%;
+  display: flex;
+  justify-content: center;   /* центрируем элементы в ряду */
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+select,
+input {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 14px;
+  outline: none;
+  background: #fff;
+
+  /* чтобы поля были по центру */
+  text-align: center;
+}
+
+select {
+  width: min(320px, 100%);  /* вместо width:auto, чтобы реально центрировалось */
+}
+
+input {
+  width: min(420px, 100%);
+}
+
+.btn {
+  border: 1px solid transparent;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: .15s ease;
+
+  /* кнопки одинаковые и по центру */
+  min-width: 220px;
+  text-align: center;
+}
+
+.btn:hover {
+  background: var(--primary-2);
+}
+
+.btn:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.btn.secondary {
+  background: #fff;
+  border-color: var(--line);
+  color: var(--text);
+  font-weight: 800;
+}
+
+.btn.active {
+  background: var(--active-bg);
+  border-color: var(--active-border);
+  color: var(--primary-2);
+}
+
+.status {
+  width: 100%;
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0;
+  text-align: center;
+}
+
+.status.ok { color: #0a7; }
+.status.err { color: var(--danger); }
+
+
+    /* ---------- App shell ---------- */
+    .app {
+      height: 100vh;
+      display: flex;
+    }
+
+    .sidebar {
+      width: 30%;
+      min-width: 280px;
+      max-width: 420px;
+      background: #fff;
+      border-right: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .side-header {
+      padding: 18px 18px 12px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand {
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: .2px;
+      margin: 0 0 12px 0;
+    }
+
+    .side-actions {
+      display: grid;
+      gap: 10px;
+    }
+
+    .btn.side {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .contacts {
+      padding: 12px;
+      overflow: auto;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .contact-item {
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      transition: .12s ease;
+    }
+
+    .contact-item:hover {
+      border-color: #cfd8ea;
+      transform: translateY(-1px);
+    }
+
+    .contact-item.active {
+      border-color: var(--active-border);
+      background: var(--active-bg);
+    }
+
+    .avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 999px;
+      background: #eaf1ff;
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      color: var(--primary-2);
+      flex: 0 0 auto;
+    }
+
+    .c-meta {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .c-name {
+      font-weight: 900;
+      font-size: 14px;
+      margin: 0;
+      line-height: 1.15;
+    }
+
+    .c-addr {
+      margin: 2px 0 0 0;
+      font-size: 12px;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .side-footer {
+      padding: 12px;
+      border-top: 1px solid var(--line);
+      background: #fff;
+    }
+
+    /* ---------- Main panel ---------- */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .main-header {
+      padding: 16px 18px;
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .main-title {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .main-title h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 900;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .main-title .sub {
+      font-size: 12px;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .main-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .messages {
+      flex: 1;
+      overflow: auto;
+      padding: 18px;
+      min-height: 0;
+    }
+
+    .empty {
+      color: var(--muted);
+      font-size: 14px;
+      padding: 10px 0;
+    }
+
+    .msg-card {
+      background: var(--msg-bg);
+      border: 1px solid var(--msg-border);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+      margin-bottom: 12px;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+
+    .msg-card.fade-in {
+      opacity: 0;
+      transform: translateY(2px);
+      animation: fadeIn .18s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .msg-title {
+      margin: 0 0 10px 0;
+      font-weight: 900;
+      font-size: 15px;
+      color: #0b1220;
+      word-break: break-word;
+    }
+
+    .msg-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    a.download {
+      display: inline-block;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(15, 23, 42, 0.15);
+      background: #fff;
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 900;
+      transition: .12s ease;
+    }
+
+    a.download:hover {
+      border-color: #9fbefb;
+      transform: translateY(-1px);
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .err {
+      color: var(--danger);
+      font-weight: 800;
+    }
+
+    /* ---------- Modal ---------- */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 50;
+    }
+
+    .modal {
+      width: min(560px, 100%);
+      background: #fff;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+
+    .modal h3 {
+      margin: 0 0 10px 0;
+      font-size: 16px;
+      font-weight: 900;
+    }
+
+    .modal .grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .modal .grid.one {
+      grid-template-columns: 1fr;
+    }
+
+    .modal .hint {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 6px;
+      line-height: 1.35;
+    }
+
+    .modal .footer {
+      margin-top: 12px;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .dropzone {
+      margin-top: 10px;
+      padding: 14px;
+      border: 2px dashed #94a3b8;
+      border-radius: 14px;
+      background: #f8fafc;
+      transition: .12s ease;
+    }
+
+    .dropzone.dragover {
+      background: #eef5ff;
+      border-color: #2b6cb0;
+    }
+
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px;
+      line-height: 1.35;
+    }
+
+    @media (max-width: 920px) {
+      .sidebar {
+        width: 38%;
+      }
+    }
+
+    @media (max-width: 720px) {
+      body {
+        overflow: auto;
+      }
+
+      .app {
+        height: auto;
+        min-height: 100vh;
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+        max-width: none;
+        border-right: none;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .main {
+        min-height: 60vh;
+      }
+    }
+
+    .user-addr {
+      font-size: 12px;
+      color: #6b7280;
+      /* серый */
+      word-break: break-all;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- AUTH -->
+  <div id="authWrap" class="auth-wrap">
+    <div class="auth-card">
+      <h2 class="auth-title">ГОСТ-веб3-мост</h2>
+      <!-- <p class="auth-sub">
+        Авторизация через MetaMask (SIWE). После входа откроется интерфейс сообщений/документов.
+      </p> -->
+
+      <div class="row">
+        <label class="muted" for="chainSelect">Сеть:</label>
+        <select id="chainSelect"></select>
+        <span class="muted" id="mmNet"></span>
+      </div>
+
+      <div style="height:12px;"></div>
+
+      <div class="row">
+        <button id="btnConnect" class="btn secondary" type="button">Подключить MetaMask</button>
+        <button id="btnLogin" class="btn" type="button">Войти</button>
+      </div>
+
+      <p id="mmStatus" class="status">MetaMask: не проверено</p>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div id="app" class="app" style="display:none;">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="side-header">
+        <div class="brand">ГОСТ-веб3-мост</div>
+        <div id="userAddr" class="user-addr"></div>
+        <div class="side-actions">
+          <button id="btnShowReceived" class="btn secondary side" type="button">Полученные</button>
+          <button id="btnOpenAddContact" class="btn secondary side" type="button">Добавь контакт</button>
+        </div>
+      </div>
+
+      <div class="contacts" id="contactsSidebar"></div>
+
+      <!-- moved send button to bottom under contacts -->
+      <div class="side-footer">
+        <button id="btnSendOpen" class="btn side" type="button">Отправить документ</button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <div class="main-header">
+        <div class="main-title">
+          <h3 id="mainTitle">Полученные</h3>
+          <div class="sub" id="mainSub">—</div>
+        </div>
+        <div class="main-actions">
+          <button id="btnLogout" class="btn secondary" type="button">Выйти</button>
+        </div>
+      </div>
+
+      <section class="messages" id="messagesWrap">
+        <div id="messagesEmpty" class="empty">Выберите “Полученные” или контакт слева.</div>
+
+        <div id="receivedCards"></div>
+        <div id="sentCards" style="display:none;"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL: Add contact -->
+  <div class="modal-backdrop" id="modalAddContact">
+    <div class="modal">
+      <h3>Добавить контакт</h3>
+      <div class="grid">
+        <div><input id="cName" placeholder="Имя (например: Боб)" /></div>
+        <div><input id="cAddress" placeholder="Адрес (0x...)" /></div>
+        <div><input id="cNetwork" placeholder="Сеть (mainnet/sepolia ...)" /></div>
+        <div><input id="cPubKey" placeholder="Public key (hex/string)" /></div>
+      </div>
+      <div class="hint">
+        network должен соответствовать contact_network, который используется на бэке (для выбора bridge/RPC).
+      </div>
+      <div class="footer">
+        <button class="btn secondary" id="btnAddContactCancel" type="button">Отмена</button>
+        <button class="btn" id="btnAddContactSave" type="button">Сохранить</button>
+      </div>
+      <p class="small err" id="addContactErr" style="display:none;"></p>
+    </div>
+  </div>
+
+  <!-- MODAL: Send file -->
+  <div class="modal-backdrop" id="modalSend">
+    <div class="modal">
+      <h3>Отправить документ</h3>
+
+      <div class="grid one">
+        <div class="row" style="justify-content:space-between;">
+          <select id="recipientSelect" title="Выбрать контакт">
+            <option value="">— выбрать из контактов —</option>
+          </select>
+          <input id="fRecipient" placeholder="Адрес получателя (0x...)" />
+        </div>
+        <div class="small" id="recipientHint"></div>
+
+        <div id="dropZone" class="dropzone">
+          <div class="muted">Перетащи файл сюда (drag&drop) или выбери:</div>
+          <div class="row" style="margin-top:10px;">
+            <input id="fileInput" type="file" />
+            <button id="btnClearFile" class="btn secondary" type="button">Очистить</button>
+          </div>
+          <div id="fileMeta" class="small"></div>
+        </div>
+
+        <div class="hint">
+          Файл преобразуется в байты, в начало добавляется строка <code>Extention:{.ext}</code>, затем отправляется на
+          <code>POST /files/send</code>. Далее MetaMask выполнит mint → approve → transfer (bridge).
+        </div>
+      </div>
+
+      <div class="footer">
+        <button class="btn secondary" id="btnSendCancel" type="button">Отмена</button>
+        <button class="btn" id="btnSendDo" type="button">Отправить</button>
+      </div>
+
+      <p class="small err" id="sendErr" style="display:none;"></p>
+      <p class="small muted" id="sendOk" style="display:none;"></p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+  <script>
+    /* ==========================
+       CONFIG
+    ========================== */
+    const API_BASE = "http://localhost:8080";
+
+    /* ==========================
+       DOM helpers
+    ========================== */
+    const $ = (id) => document.getElementById(id);
+
+    const chainSelect = $("chainSelect");
+    const mmNet = $("mmNet");
+    const mmStatus = $("mmStatus");
+
+    const authWrap = $("authWrap");
+    const appEl = $("app");
+
+    const contactsSidebar = $("contactsSidebar");
+    const mainTitle = $("mainTitle");
+    const mainSub = $("mainSub");
+    const messagesEmpty = $("messagesEmpty");
+
+    const receivedCards = $("receivedCards");
+    const sentCards = $("sentCards");
+
+    const btnShowReceived = $("btnShowReceived");
+
+    /* ==========================
+       Storage (tokens)
+    ========================== */
+    const storage = {
+      setTokens(t) { localStorage.setItem("tokens", JSON.stringify(t)); },
+      getTokens() { try { return JSON.parse(localStorage.getItem("tokens") || "null"); } catch { return null; } },
+      clear() { localStorage.removeItem("tokens"); },
+    };
+
+    function showAuth() {
+      authWrap.style.display = "flex";
+      appEl.style.display = "none";
+    }
+
+    function showApp() {
+      authWrap.style.display = "none";
+      appEl.style.display = "flex";
+    }
+
+    /* ==========================
+       MetaMask / Ethers helpers
+    ========================== */
+    async function ensureMetaMask() {
+      if (!window.ethereum) {
+        mmStatus.className = "status err";
+        mmStatus.textContent = "MetaMask не найден. Установи расширение/мобильный браузер с MetaMask.";
+        throw new Error("MetaMask not found");
+      }
+      mmStatus.className = "status ok";
+      mmStatus.textContent = "MetaMask найден ✅";
+    }
+
+    function toHexChainId(chainId) {
+      return "0x" + BigInt(chainId).toString(16);
+    }
+
+    function chainLabel(chainId) {
+      const map = { 1: "Ethereum Mainnet (1)", 11155111: "Sepolia (11155111)" };
+      return map[chainId] || ("Chain " + chainId);
+    }
+
+    function setUserAddress(addr) {
+      const el = document.getElementById("userAddr");
+      if (!el) return;
+      const a = (addr || "").trim();
+      el.textContent = a ? `${a}` : "";
+    }
+
+
+    async function loadSupportedChains() {
+      try {
+        const res = await fetch(API_BASE + "/chains");
+        const data = await res.json();
+        const ids = (data.chains || []).map(x => Number(x.chainId)).filter(Boolean);
+
+        chainSelect.innerHTML = "";
+        if (ids.length === 0) throw new Error("no chains from backend");
+
+        for (const id of ids.sort((a, b) => a - b)) {
+          const opt = document.createElement("option");
+          opt.value = String(id);
+          opt.textContent = chainLabel(id);
+          chainSelect.appendChild(opt);
+        }
+      } catch {
+        chainSelect.innerHTML = `
+          <option value="1">Ethereum Mainnet</option>
+          <option value="11155111">Sepolia</option>
+        `;
+      }
+    }
+
+    async function getMMChainId(provider) {
+      const net = await provider.getNetwork();
+      return Number(net.chainId);
+    }
+
+    async function connect() {
+      await ensureMetaMask();
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const accounts = await provider.send("eth_requestAccounts", []);
+      const address = ethers.getAddress(accounts[0]);
+      const currentChainId = await getMMChainId(provider);
+      mmNet.textContent = `MetaMask chainId: ${currentChainId}`;
+      return { provider, address, currentChainId };
+    }
+
+    async function switchChainIfNeeded(targetChainId) {
+      await ensureMetaMask();
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const current = await getMMChainId(provider);
+      if (current === targetChainId) return;
+
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: toHexChainId(targetChainId) }]
+      });
+    }
+
+    /* ==========================
+       API helper with JWT
+    ========================== */
+    async function apiFetch(path, opts = {}) {
+      const t = storage.getTokens();
+      const headers = Object.assign({}, opts.headers || {});
+      if (t?.accessToken) headers["Authorization"] = "Bearer " + t.accessToken;
+      return fetch(API_BASE + path, Object.assign({}, opts, { headers }));
+    }
+
+    async function refreshTokens() {
+      const t = storage.getTokens();
+      if (!t?.refreshToken) throw new Error("no refresh token");
+
+      const res = await fetch(API_BASE + "/auth/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken: t.refreshToken })
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "refresh failed");
+
+      const merged = Object.assign({}, t, body);
+      storage.setTokens(merged);
+      return merged;
+    }
+
+    async function apiFetchWithRefresh(path, opts = {}) {
+      let res = await apiFetch(path, opts);
+      if (res.status === 401) {
+        await refreshTokens();
+        res = await apiFetch(path, opts);
+      }
+      return res;
+    }
+
+    /* ==========================
+       UI helpers
+    ========================== */
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+      }[c]));
+    }
+    function escapeAttr(s) { return escapeHtml(s); }
+
+    function safeName(item) {
+      const n = (item?.name || "").trim();
+      if (n) return n;
+      const u = (item?.tokenURI || "").trim();
+      return u || "document.enc";
+    }
+
+    function setEmpty(text) {
+      messagesEmpty.style.display = "block";
+      messagesEmpty.textContent = text;
+    }
+    function hideEmpty() {
+      messagesEmpty.style.display = "none";
+    }
+
+    function clearMessages() {
+      receivedCards.innerHTML = "";
+      sentCards.innerHTML = "";
+    }
+
+    function setModeReceived() {
+      mainTitle.textContent = "Полученные";
+      mainSub.textContent = "Документы, полученные вашим аккаунтом";
+      receivedCards.style.display = "block";
+      sentCards.style.display = "none";
+      selectedContact = null;
+      setActiveView("received");
+    }
+
+    function setModeContact(contact) {
+      mainTitle.textContent = contact?.name || "Контакт";
+      mainSub.textContent = contact?.address || "—";
+      receivedCards.style.display = "none";
+      sentCards.style.display = "block";
+      setActiveView("contact");
+    }
+
+    /* ---------- Active highlight: contact or "Полученные" ---------- */
+    function setActiveView(view) {
+      // view: "received" | "contact"
+      if (view === "received") {
+        btnShowReceived.classList.add("active");
+      } else {
+        btnShowReceived.classList.remove("active");
+      }
+    }
+
+    /* ---------- Smooth update (skip if same) ---------- */
+    let lastReceivedSig = "";
+    let lastSentSig = "";
+
+    function itemsSignature(items) {
+      const arr = (items || []).map(x => ({
+        tokenId: String(x?.tokenId ?? ""),
+        tokenURI: String(x?.tokenURI ?? ""),
+        name: String(x?.name ?? ""),
+        downloadUrl: String(x?.downloadUrl ?? ""),
+        cid: String(x?.cid ?? "")
+      }));
+
+      // stable order (tokenId asc, then tokenURI)
+      arr.sort((a, b) => {
+        const ai = BigIntSafe(a.tokenId);
+        const bi = BigIntSafe(b.tokenId);
+        if (ai < bi) return -1;
+        if (ai > bi) return 1;
+        if (a.tokenURI < b.tokenURI) return -1;
+        if (a.tokenURI > b.tokenURI) return 1;
+        return 0;
+      });
+
+      return JSON.stringify(arr);
+    }
+
+    function BigIntSafe(s) {
+      try { return BigInt(s || "0"); } catch { return 0n; }
+    }
+
+    function renderMessageCards(container, items, errText, mode /* "received"|"sent" */) {
+      if (errText) {
+        container.innerHTML = "";
+        setEmpty("Ошибка: " + errText);
+        return;
+      }
+
+      const sig = itemsSignature(items);
+
+      // ✅ Если данные те же самые, но контейнер пустой (мы его очистили на "Загрузка..."),
+      // то НЕ выходим — нужно перерисовать.
+      if (mode === "received") {
+        if (sig === lastReceivedSig && container.childElementCount > 0) return;
+        lastReceivedSig = sig;
+      } else {
+        if (sig === lastSentSig && container.childElementCount > 0) return;
+        lastSentSig = sig;
+      }
+
+      container.innerHTML = "";
+
+      if (!items || items.length === 0) {
+        setEmpty("Сообщений нет.");
+        return;
+      }
+
+      hideEmpty();
+
+      for (const it of items) {
+        const card = document.createElement("div");
+        card.className = "msg-card fade-in";
+
+        const name = safeName(it);
+        const dl = it.downloadUrl || it.tokenURI || "";
+
+        card.innerHTML = `
+      <p class="msg-title">${escapeHtml(name)}</p>
+      <div class="msg-actions">
+        <a class="download"
+           href="${escapeAttr(dl)}"
+           download="${escapeAttr(name)}"
+           target="_blank"
+           rel="noreferrer">Скачать</a>
+      </div>
+    `;
+        container.appendChild(card);
+      }
+    }
+
+
+    /* ==========================
+       Contacts
+    ========================== */
+    let contactsCache = [];
+    let selectedContact = null;
+
+    function renderContactsSidebar(contacts) {
+      contactsSidebar.innerHTML = "";
+      if (!contacts || contacts.length === 0) {
+        contactsSidebar.innerHTML = `<div class="muted" style="padding:10px;">Контактов нет.</div>`;
+        return;
+      }
+
+      for (const c of contacts) {
+        const item = document.createElement("div");
+        item.className = "contact-item";
+        item.dataset.addr = (c.address || "").toLowerCase();
+
+        const letter = ((c.name || "?")[0] || "?").toUpperCase();
+        item.innerHTML = `
+          <div class="avatar">${escapeHtml(letter)}</div>
+          <div class="c-meta">
+            <p class="c-name">${escapeHtml(c.name || "Без имени")}</p>
+            <p class="c-addr">${escapeHtml(c.address || "")}</p>
+          </div>
+        `;
+
+        item.addEventListener("click", async () => {
+          selectedContact = { name: c.name || "Без имени", address: c.address, network: c.network || "" };
+
+          Array.from(contactsSidebar.querySelectorAll(".contact-item")).forEach(x => x.classList.remove("active"));
+          item.classList.add("active");
+
+          // switch active highlighting
+          btnShowReceived.classList.remove("active");
+
+          // ✅ clear message area while loading
+          clearMessages();
+          setModeContact(selectedContact);
+          setEmpty("Загрузка...");
+
+          await showSentForSelectedContact();
+        });
+
+        contactsSidebar.appendChild(item);
+      }
+    }
+
+    function setRecipientOptions(contacts) {
+      const select = $("recipientSelect");
+      select.innerHTML = `<option value="">— выбрать из контактов —</option>`;
+      for (const c of contacts) {
+        const opt = document.createElement("option");
+        opt.value = c.address;
+        opt.textContent = `${c.name || "(no name)"} — ${c.address} [${c.network || ""}]`;
+        select.appendChild(opt);
+      }
+      $("recipientHint").textContent = contacts.length
+        ? "Выбери контакт из списка — адрес подставится автоматически (можно и вручную)."
+        : "Список контактов пуст. Добавь контакт, чтобы выбирать получателя из списка.";
+    }
+
+    async function loadContacts() {
+      const res = await apiFetchWithRefresh("/contacts");
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "get contacts failed");
+
+      contactsCache = body.contacts || [];
+      renderContactsSidebar(contactsCache);
+      setRecipientOptions(contactsCache);
+    }
+
+    /* ==========================
+       Received NFTs (/nfts)
+    ========================== */
+    let nftPollTimer = null;
+
+    async function loadReceived({ showLoading = true } = {}) {
+      // In received view: highlight "Полученные"
+      setActiveView("received");
+      // remove active contact highlight
+      Array.from(contactsSidebar.querySelectorAll(".contact-item")).forEach(x => x.classList.remove("active"));
+
+      receivedCards.style.display = "block";
+      sentCards.style.display = "none";
+
+      mainTitle.textContent = "Полученные";
+      mainSub.textContent = "Документы, полученные вашим аккаунтом";
+
+      if (showLoading) {
+        // don't clear if not needed; but show loading text if first time
+        setEmpty("Загрузка...");
+      }
+
+      const res = await apiFetchWithRefresh("/nfts");
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        renderMessageCards(receivedCards, [], body.error || "get nfts failed", "received");
+        return;
+      }
+
+      // only render if changed
+      renderMessageCards(receivedCards, body.nfts || [], body.error || "", "received");
+    }
+
+    function startNftPolling() {
+      stopNftPolling();
+      nftPollTimer = setInterval(() => {
+        if (document.visibilityState !== "visible") return;
+        // refresh only when viewing "Полученные"
+        if (!selectedContact) loadReceived({ showLoading: false }).catch(() => { });
+      }, 15000);
+    }
+
+    function stopNftPolling() {
+      if (nftPollTimer) {
+        clearInterval(nftPollTimer);
+        nftPollTimer = null;
+      }
+    }
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        if (!selectedContact && storage.getTokens()?.accessToken) {
+          loadReceived({ showLoading: false }).catch(() => { });
+        }
+      }
+    });
+
+    /* ==========================
+       Sent to contact (/scan/contact)
+    ========================== */
+    async function showSentForSelectedContact() {
+      if (!selectedContact?.address) {
+        setEmpty("Контакт не выбран.");
+        return;
+      }
+
+      sentCards.innerHTML = "";
+      setEmpty("Загрузка...");
+
+      const payload = {
+        contactAddr: selectedContact.address,
+        network: selectedContact.network || "",
+        fromBlock: 0,
+        toBlock: 0,
+        nftContract: ""
+      };
+
+      const res = await apiFetchWithRefresh("/scan/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        renderMessageCards(sentCards, [], body.error || "scan failed", "sent");
+        return;
+      }
+
+      renderMessageCards(sentCards, body.items || [], "", "sent");
+    }
+
+    /* ==========================
+       SIWE Login
+    ========================== */
+    async function siweLogin() {
+      const targetChainId = Number(chainSelect.value);
+
+      await switchChainIfNeeded(targetChainId);
+
+      const { provider } = await connect();
+      const signer = await provider.getSigner();
+
+      const initRes = await fetch(API_BASE + "/auth/siwe/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: await signer.getAddress(), chainId: targetChainId })
+      });
+      const initBody = await initRes.json().catch(() => ({}));
+      if (!initRes.ok) throw new Error(initBody.error || "siwe init failed");
+
+      const signature = await signer.signMessage(initBody.message);
+
+      const verRes = await fetch(API_BASE + "/auth/siwe/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: initBody.message, signature })
+      });
+      const verBody = await verRes.json().catch(() => ({}));
+      if (!verRes.ok) throw new Error(verBody.error || "siwe verify failed");
+
+      storage.setTokens(verBody);
+      setUserAddress(verBody.address || (storage.getTokens()?.address || ""));
+
+
+      selectedContact = null;
+      lastReceivedSig = "";
+      lastSentSig = "";
+      showApp();
+
+      await loadContacts().catch(() => { });
+      await loadReceived({ showLoading: true }).catch(() => { });
+
+      startNftPolling();
+    }
+
+    async function logout() {
+      stopNftPolling();
+      storage.clear();
+      selectedContact = null;
+      contactsCache = [];
+      lastReceivedSig = "";
+      lastSentSig = "";
+      setUserAddress("");
+      clearMessages();
+      showAuth();
+    }
+
+    /* ==========================
+       Modal helpers
+    ========================== */
+    function openModal(id) { $(id).style.display = "flex"; }
+    function closeModal(id) { $(id).style.display = "none"; }
+
+    /* ==========================
+       Add contact modal
+    ========================== */
+    async function addContact() {
+      $("addContactErr").style.display = "none";
+
+      const payload = {
+        name: $("cName").value.trim(),
+        address: $("cAddress").value.trim(),
+        network: $("cNetwork").value.trim(),
+        public_key: $("cPubKey").value.trim(),
+      };
+
+      const res = await apiFetchWithRefresh("/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        $("addContactErr").style.display = "block";
+        $("addContactErr").textContent = body.error || "add contact failed";
+        return;
+      }
+
+      closeModal("modalAddContact");
+      $("cName").value = "";
+      $("cAddress").value = "";
+      $("cNetwork").value = "";
+      $("cPubKey").value = "";
+
+      await loadContacts().catch(() => { });
+    }
+
+    /* ==========================
+       Send file modal
+    ========================== */
+    const dropZone = $("dropZone");
+    const fileInput = $("fileInput");
+    const fileMeta = $("fileMeta");
+    const btnClearFile = $("btnClearFile");
+
+    let selectedFile = null;
+
+    function extFromName(name) {
+      const i = name.lastIndexOf(".");
+      return i >= 0 ? name.slice(i) : "";
+    }
+
+    function setSelectedFile(f) {
+      selectedFile = f || null;
+      if (!selectedFile) {
+        fileMeta.textContent = "";
+        fileInput.value = "";
+        return;
+      }
+      const ext = extFromName(selectedFile.name);
+      fileMeta.textContent = `Выбран: ${selectedFile.name} (${Math.round(selectedFile.size / 1024)} KB), ext="${ext}", префикс: Extention:{${ext}}`;
+    }
+
+    async function buildPayloadBytes(file) {
+      const ext = extFromName(file.name);
+      const prefix = `Extention:{${ext}}`;
+      const prefixBytes = new TextEncoder().encode(prefix);
+      const ab = await file.arrayBuffer();
+      const fileBytes = new Uint8Array(ab);
+
+      const full = new Uint8Array(prefixBytes.length + fileBytes.length);
+      full.set(prefixBytes, 0);
+      full.set(fileBytes, prefixBytes.length);
+      return full;
+    }
+
+    async function sendFileToBackend(recipient, file) {
+      const payloadBytes = await buildPayloadBytes(file);
+      const blob = new Blob([payloadBytes], { type: "application/octet-stream" });
+      const payloadFile = new File([blob], file.name, { type: "application/octet-stream" });
+
+      const form = new FormData();
+      form.append("recipient_address", recipient);
+      form.append("payload", payloadFile);
+
+      const res = await apiFetchWithRefresh("/files/send", { method: "POST", body: form });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "files/send failed");
+      return body;
+    }
+
+    dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("dragover"); });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("dragover");
+      const f = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) setSelectedFile(f);
+    });
+
+    fileInput.addEventListener("change", (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (f) setSelectedFile(f);
+    });
+
+    btnClearFile.addEventListener("click", () => {
+      setSelectedFile(null);
+      $("sendErr").style.display = "none";
+      $("sendOk").style.display = "none";
+    });
+
+    $("recipientSelect").addEventListener("change", () => {
+      const v = $("recipientSelect").value;
+      if (v) $("fRecipient").value = v;
+    });
+
+    async function doSendFlow() {
+      $("sendErr").style.display = "none";
+      $("sendOk").style.display = "none";
+
+      const recipient = ($("fRecipient").value || "").trim();
+      if (!recipient) throw new Error("Укажи адрес получателя");
+      if (!selectedFile) throw new Error("Выбери файл");
+
+      $("btnSendDo").disabled = true;
+      $("sendOk").style.display = "block";
+      $("sendOk").textContent = "Загрузка на сервер...";
+
+      const out = await sendFileToBackend(recipient, selectedFile);
+
+      const nftAbiMinimal = [
+        "function approve(address to, uint256 tokenId)",
+        "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)"
+      ];
+      const bridgeAbiMinimal = [
+        "function transferNFTToContract(address _nftContract, address ownerAddressInChainB, uint256 _tokenId) returns (bool)",
+        "event TokenLocked(uint256 tokenId, address sender, address addressInChainB, string tokenURIValue)"
+      ];
+
+      $("sendOk").textContent = "Ожидание mint в MetaMask...";
+      await switchChainIfNeeded(Number(out.tx.chainId));
+      await ensureMetaMask();
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+
+      const mintTx = await signer.sendTransaction({ to: out.tx.to, data: out.tx.data, value: 0n });
+      const mintReceipt = await mintTx.wait();
+
+      const iface = new ethers.Interface(nftAbiMinimal);
+      let tokenId = null;
+      for (const lg of mintReceipt.logs) {
+        try {
+          const parsed = iface.parseLog(lg);
+          if (parsed?.name === "Transfer") { tokenId = parsed.args.tokenId.toString(); break; }
+        } catch (_) { }
+      }
+      if (!tokenId) throw new Error("Не удалось получить tokenId из mint receipt");
+
+      $("sendOk").textContent = "Ожидание approve в MetaMask...";
+      const bridgeAddr = out.approve?.bridgeAddr;
+      if (!bridgeAddr) throw new Error("От сервера не пришёл approve.bridgeAddr");
+
+      const nft = new ethers.Contract(out.tx.to, nftAbiMinimal, signer);
+      const approveTx = await nft.approve(bridgeAddr, tokenId);
+      await approveTx.wait();
+
+      $("sendOk").textContent = "Ожидание transfer в MetaMask...";
+      const transferBridgeAddr = out.transfer?.bridgeAddr || bridgeAddr;
+      const ownerInB = (out.transfer?.ownerAddressInChainB || recipient).trim();
+      if (!ownerInB) throw new Error("Не указан ownerAddressInChainB");
+
+      const bridge = new ethers.Contract(transferBridgeAddr, bridgeAbiMinimal, signer);
+      const transferTx = await bridge.transferNFTToContract(out.tx.to, ownerInB, tokenId);
+      await transferTx.wait();
+
+      $("sendOk").textContent = "Готово ✅ Документ отправлен.";
+
+      setTimeout(() => {
+        closeModal("modalSend");
+        $("fRecipient").value = "";
+        $("recipientSelect").value = "";
+        setSelectedFile(null);
+        $("sendOk").style.display = "none";
+      }, 650);
+
+      // Refresh view (but with smooth signature check)
+      if (selectedContact?.address) {
+        await showSentForSelectedContact().catch(() => { });
+      } else {
+        await loadReceived({ showLoading: false }).catch(() => { });
+      }
+    }
+
+    /* ==========================
+       Events
+    ========================== */
+    $("btnConnect").onclick = () => connect().catch(err => { mmStatus.className = "status err"; mmStatus.textContent = err.message; });
+    $("btnLogin").onclick = async () => {
+      try {
+        $("btnLogin").disabled = true;
+        await siweLogin();
+      } catch (e) {
+        mmStatus.className = "status err";
+        mmStatus.textContent = e?.message || String(e);
+      } finally {
+        $("btnLogin").disabled = false;
+      }
+    };
+
+    $("btnLogout").onclick = () => logout();
+
+    btnShowReceived.onclick = async () => {
+      selectedContact = null;
+      lastSentSig = ""; // reset sent signature when leaving contact view
+      await loadReceived({ showLoading: true }).catch(() => { });
+    };
+
+    $("btnOpenAddContact").onclick = () => openModal("modalAddContact");
+    $("btnAddContactCancel").onclick = () => closeModal("modalAddContact");
+    $("btnAddContactSave").onclick = () => addContact().catch(() => { });
+
+    $("btnSendOpen").onclick = () => {
+      $("sendErr").style.display = "none";
+      $("sendOk").style.display = "none";
+      openModal("modalSend");
+    };
+    $("btnSendCancel").onclick = () => closeModal("modalSend");
+
+    $("btnSendDo").onclick = async () => {
+      try {
+        await doSendFlow();
+      } catch (e) {
+        $("sendErr").style.display = "block";
+        $("sendErr").textContent = e?.message || String(e);
+      } finally {
+        $("btnSendDo").disabled = false;
+      }
+    };
+
+    $("modalAddContact").addEventListener("click", (e) => { if (e.target.id === "modalAddContact") closeModal("modalAddContact"); });
+    $("modalSend").addEventListener("click", (e) => { if (e.target.id === "modalSend") closeModal("modalSend"); });
+
+    /* ==========================
+       Boot
+    ========================== */
+    (async () => {
+      await loadSupportedChains();
+      try { await ensureMetaMask(); } catch { }
+
+      const t = storage.getTokens();
+      if (t?.accessToken) {
+        showApp();
+        setUserAddress(t.address || "");
+        await loadContacts().catch(() => { });
+        await loadReceived({ showLoading: true }).catch(() => { });
+        startNftPolling();
+      } else {
+        showAuth();
+      }
+    })();
+  </script>
+</body>
+
+</html>
