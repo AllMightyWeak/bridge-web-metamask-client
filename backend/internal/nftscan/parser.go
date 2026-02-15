@@ -1,6 +1,7 @@
 package nftscan
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 )
@@ -13,6 +14,17 @@ func parseTokenURI(raw string) (cleanURI string, name string, cid string) {
 
 	u, err := url.Parse(raw)
 	if err != nil {
+		fmt.Println("error here: ", err)
+		_, name, found := strings.Cut(raw, "?")
+		if found {
+			encodedName := strings.TrimPrefix(name, "name=")
+			filename, err := url.QueryUnescape(encodedName)
+			if err != nil {
+				fmt.Println("Error decoding:", err)
+				return "", "", ""
+			}
+			return raw, filename, ""
+		}
 		// если не распарсилось — вернем как есть
 		return raw, "", ""
 	}

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"testMM/backend/internal/cryptoenc"
 	"testMM/backend/internal/ipfs"
@@ -51,15 +52,16 @@ type TransferPlan struct {
 }
 
 type SendFileResp struct {
-	Cid       string       `json:"cid"`
-	Name      string       `json:"name"`
-	Size      int          `json:"size"`
-	CreatedAt string       `json:"created_at"`
-	Gateway   string       `json:"gateway,omitempty"`
-	TokenURI  string       `json:"token_uri"`
-	Tx        TxRequest    `json:"tx"` // ✅ готовая транзакция для MetaMask
-	Approve   ApprovePlan  `json:"approve"`
-	Transfer  TransferPlan `json:"transfer"`
+	Cid       string `json:"cid"`
+	Name      string `json:"name"`
+	Size      int    `json:"size"`
+	CreatedAt string `json:"created_at"`
+	Gateway   string `json:"gateway,omitempty"`
+	TokenURI  string `json:"token_uri"`
+
+	Tx       TxRequest    `json:"tx"` // ✅ готовая транзакция для MetaMask
+	Approve  ApprovePlan  `json:"approve"`
+	Transfer TransferPlan `json:"transfer"`
 }
 
 // POST /files/send (protected)
@@ -70,6 +72,41 @@ func (h *Handlers) SendFile(c *gin.Context) {
 	recipient := strings.TrimSpace(c.PostForm("recipient_address"))
 	if !common.IsHexAddress(recipient) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid recipient_address"})
+		return
+	}
+
+	// dept/role (FormData)
+	deptStr := strings.TrimSpace(c.PostForm("dept"))
+	roleStr := strings.TrimSpace(c.PostForm("role"))
+
+	// defaults (если фронт не прислал)
+	dept := 0
+	role := 0
+
+	if deptStr != "" {
+		v, err := strconv.Atoi(deptStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid dept"})
+			return
+		}
+		dept = v
+	}
+	if roleStr != "" {
+		v, err := strconv.Atoi(roleStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid role"})
+			return
+		}
+		role = v
+	}
+
+	// validate ranges
+	if dept < 0 || dept > 2 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "dept must be 0..2"})
+		return
+	}
+	if role < 0 || role > 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "role must be 0..1"})
 		return
 	}
 
@@ -121,7 +158,8 @@ func (h *Handlers) SendFile(c *gin.Context) {
 	}
 
 	// 2) шифруем bytes получателя
-	cipher, err := cryptoenc.EncryptBytes(pubECDSA, payloadBytes)
+
+	cipher, err := cryptoenc.EncryptBytes(pubECDSA, payloadBytes, fileHeader.Filename)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -158,6 +196,70 @@ func (h *Handlers) SendFile(c *gin.Context) {
 	if nameEnc != "" {
 		tokenURI = tokenURI + "?name=" + url.QueryEscape(nameEnc)
 	}
+
+	// if dept != -1 && role != -1 {
+	// 	encLink := encryptionAbe.EncryptLink(tokenURI, dept, role)
+	// 	tokenURI, err = encryptionAbe.MarshalEncryptedDataToString(encLink)
+	// 	tokenURI = tokenURI + "?name=" + url.QueryEscape(nameEnc)
+	// 	if err != nil {
+	// 		log.Println("error encrypting tokenURI: ", err)
+	// 	}
+
+	// 	// 5) Формируем calldata для createToken(owner, tokenURI)
+	// 	nftAddrStr := strings.TrimSpace(os.Getenv("NFT_ADDR"))
+	// 	if !common.IsHexAddress(nftAddrStr) {
+	// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "NFT_ADDR env is missing or invalid"})
+	// 		return
+	// 	}
+	// 	nftAddr := common.HexToAddress(nftAddrStr)
+
+	// 	parsedABI, err := abi.JSON(strings.NewReader(nftABI))
+	// 	if err != nil {
+	// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "nft abi parse failed: " + err.Error()})
+	// 		return
+	// 	}
+
+	// 	data, err := parsedABI.Pack("createToken", tokenURI)
+	// 	if err != nil {
+	// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "abi pack failed: " + err.Error()})
+	// 		return
+	// 	}
+
+	// 	ownerB := strings.ToLower(strings.TrimSpace(recipient))
+
+	// 	// 6) Возвращаем tx request для MetaMask
+	// 	c.JSON(http.StatusOK, SendFileResp{
+	// 		Cid:       up.Data.Cid,
+	// 		Name:      up.Data.Name,
+	// 		Size:      up.Data.Size,
+	// 		CreatedAt: up.Data.CreatedAt,
+	// 		Gateway:   gwURL,
+	// 		TokenURI:  tokenURI,
+	// 		Tx: TxRequest{
+	// 			From:    sender,
+	// 			To:      nftAddr.Hex(),
+	// 			Data:    "0x" + hex.EncodeToString(data),
+	// 			Value:   "0x0",
+	// 			ChainID: chainID,
+	// 		},
+	// 		Approve: ApprovePlan{
+	// 			BridgeAddr: bridgeAddr,
+	// 			Network:    info.Network,
+	// 		},
+	// 		Transfer: TransferPlan{
+	// 			BridgeAddr:      bridgeAddr,
+	// 			OwnerAddressInB: ownerB,
+	// 			Network:         info.Network,
+	// 		},
+	// 	})
+	// }
+
+	// encLink := encryptionAbe.EncryptLink(tokenURI, dept, role)
+	// tokenURI, err = encryptionAbe.MarshalEncryptedDataToString(encLink)
+	// tokenURI = tokenURI + "?name=" + url.QueryEscape(nameEnc)
+	// if err != nil {
+	// 	log.Println("error encrypting tokenURI: ", err)
+	// }
 
 	// 5) Формируем calldata для createToken(owner, tokenURI)
 	nftAddrStr := strings.TrimSpace(os.Getenv("NFT_ADDR"))

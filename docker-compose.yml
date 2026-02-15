@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: testmm_db
+    container_name: client_database
     env_file:
       - db/.env
       
@@ -20,7 +20,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: testmm_backend
+    container_name: client_backend
     env_file:
       - backend/.env
     ports:
@@ -33,7 +33,7 @@ services:
     build:
       context: ./frontend/static
       dockerfile: Dockerfile
-    container_name: testmm_frontend
+    container_name: client_frontend
     ports:
       - "3000:80"
     depends_on:
