@@ -373,7 +373,7 @@
       flex-wrap: wrap;
     }
 
-    a.download {
+    .download {
       display: inline-block;
       padding: 10px 14px;
       border-radius: 12px;
@@ -385,7 +385,7 @@
       transition: .12s ease;
     }
 
-    a.download:hover {
+    .download:hover {
       border-color: #9fbefb;
       transform: translateY(-1px);
     }
@@ -508,32 +508,106 @@
       word-break: break-all;
       margin-bottom: 10px;
     }
+
+    /* Toggle switch (policy on/off) */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #cfd7e6;
+      transition: .15s;
+      border-radius: 999px
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background: white;
+      transition: .15s;
+      border-radius: 50%;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, .18)
+    }
+
+    .switch input:checked+.slider {
+      background: var(--primary)
+    }
+
+    .switch input:checked+.slider:before {
+      transform: translateX(20px)
+    }
   </style>
 </head>
 
 <body>
-  <!-- AUTH -->
+  <!-- AUTH: Шаг 1 — только ЕСИА -->
   <div id="authWrap" class="auth-wrap">
     <div class="auth-card">
       <h2 class="auth-title">ГОСТ-веб3-мост</h2>
-      <!-- <p class="auth-sub">
-        Авторизация через MetaMask (SIWE). После входа откроется интерфейс сообщений/документов.
-      </p> -->
+      <p class="auth-sub">
+        Для входа в систему необходима авторизация через Госуслуги
+      </p>
+
+      <div style="height: 12px;"></div>
 
       <div class="row">
-        <label class="muted" for="chainSelect">Сеть:</label>
-        <select id="chainSelect"></select>
-        <span class="muted" id="mmNet"></span>
+        <button id="btnEsiaLogin" class="btn" type="button">
+          🏛 Войти через Госуслуги
+        </button>
       </div>
 
-      <div style="height:12px;"></div>
+      <p id="authStatus" class="status"></p>
+    </div>
+  </div>
+
+  <!-- AUTH: Шаг 2 — привязка MetaMask (только после ЕСИА) -->
+  <div id="walletLinkWrap" class="auth-wrap" style="display:none;">
+    <div class="auth-card">
+      <h2 class="auth-title">Привязка кошелька</h2>
+      <p class="auth-sub">
+        Вы успешно вошли через Госуслуги.<br>
+        Теперь подключите MetaMask для работы с документами.
+      </p>
+
+      <div id="esiaUserBadge" class="status ok" style="font-size:12px; margin-bottom:4px;"></div>
 
       <div class="row">
-        <button id="btnConnect" class="btn secondary" type="button">Подключить MetaMask</button>
-        <button id="btnLogin" class="btn" type="button">Войти</button>
+        <label class="muted" for="chainSelectLink">Сеть:</label>
+        <select id="chainSelectLink"></select>
       </div>
 
-      <p id="mmStatus" class="status">MetaMask: не проверено</p>
+      <div style="height: 8px;"></div>
+
+      <div class="row">
+        <button id="btnLinkWallet" class="btn" type="button">
+          🦊 Подключить MetaMask и подписать
+        </button>
+      </div>
+
+      <div class="row">
+        <button id="btnLinkCancel" class="btn secondary" type="button">← Назад</button>
+      </div>
+
+      <p id="linkStatus" class="status"></p>
     </div>
   </div>
 
@@ -613,20 +687,34 @@
           <input id="fRecipient" placeholder="Адрес получателя (0x...)" />
         </div>
         <div class="small" id="recipientHint"></div>
-
-        <!-- Department / Role -->
-        <div class="row" style="justify-content:space-between;">
-          <select id="deptSelect" title="Департамент">
-            <option value="0">Юридический отдел (0)</option>
-            <option value="1">IT отдел (1)</option>
-            <option value="2">Маркетинговый отдел (2)</option>
-          </select>
-
-          <select id="roleSelect" title="Роль"></select>
+        <div class="row" style="align-items:center; margin-top:10px;">
+          <span class="small muted" style="min-width:160px;">Политика доступа:</span>
+          <label class="switch" title="Включить/выключить политику. Если выключено — отправится (-1,-1)">
+            <input id="policyToggle" type="checkbox" checked />
+            <span class="slider"></span>
+          </label>
+          <span class="small muted" id="policyHint">Включено</span>
         </div>
-        <div class="small muted" id="deptRoleHint">
-          Выберите департамент и роль — на сервер уйдут два числа: dept, role.
+
+        <div class="row" style="margin-top:10px; gap:10px;">
+          <div style="flex:1; min-width:220px;">
+            <div class="small muted" style="margin-bottom:6px;">Департамент</div>
+            <select id="deptSelect">
+              <option value="" selected disabled>— выбери департамент —</option>
+              <option value="0">Юридический отдел (0)</option>
+              <option value="1">IT отдел (1)</option>
+              <option value="2">Маркетинговый отдел (2)</option>
+            </select>
+          </div>
+
+          <div style="flex:1; min-width:220px;">
+            <div class="small muted" style="margin-bottom:6px;">Роль</div>
+            <select id="roleSelect" disabled>
+              <option value="" selected disabled>— выбери роль —</option>
+            </select>
+          </div>
         </div>
+
 
         <div id="dropZone" class="dropzone">
           <div class="muted">Перетащи файл сюда (drag&drop) или выбери:</div>
@@ -654,34 +742,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
   <script>
-    // Department -> roles
-    const DEPT_ROLES = {
-      0: [
-        { value: "0", label: "Начальник (0)" },
-        { value: "1", label: "Юрист (1)" },
-      ],
-      1: [
-        { value: "0", label: "Начальник (0)" },
-        { value: "1", label: "Разработчик (1)" },
-      ],
-      2: [
-        { value: "0", label: "Начальник (0)" },
-        { value: "1", label: "Специалист по маркетингу (1)" },
-      ],
-    };
-
-    function fillRolesForDept(deptVal) {
-      const roleSel = $("roleSelect");
-      roleSel.innerHTML = "";
-      const roles = DEPT_ROLES[Number(deptVal)] || [];
-      for (const r of roles) {
-        const opt = document.createElement("option");
-        opt.value = r.value;
-        opt.textContent = r.label;
-        roleSel.appendChild(opt);
-      }
-    }
-
     /* ==========================
        CONFIG
     ========================== */
@@ -721,11 +781,29 @@
     function showAuth() {
       authWrap.style.display = "flex";
       appEl.style.display = "none";
+      $("walletLinkWrap").style.display = "none";
+    }
+
+    function showWalletLink(esiaUserID) {
+      authWrap.style.display = "none";
+      appEl.style.display = "none";
+      $("walletLinkWrap").style.display = "flex";
+
+      // Синхронизируем список сетей
+      $("chainSelectLink").innerHTML = $("chainSelect").innerHTML;
+
+      const badge = $("esiaUserBadge");
+      if (badge && esiaUserID) badge.textContent = "ЕСИА ID: " + esiaUserID;
     }
 
     function showApp() {
       authWrap.style.display = "none";
+      $("walletLinkWrap").style.display = "none";
       appEl.style.display = "flex";
+    }
+
+    function hideWalletLink() {
+      $("walletLinkWrap").style.display = "none";
     }
 
     /* ==========================
@@ -852,6 +930,88 @@
         "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
       }[c]));
     }
+    function ipfsToGateway(urlOrCid) {
+      const s = (urlOrCid || "").trim();
+      if (!s) return "";
+
+      // ipfs://CID[?name=...]
+      if (s.startsWith("ipfs://")) {
+        let cid = s.slice("ipfs://".length);
+        cid = cid.split(/[?#]/)[0];
+        return cid ? ("https://ipfs.io/ipfs/" + cid) : "";
+      }
+
+      // already http(s)
+      if (/^https?:\/\//i.test(s)) return s;
+
+      // raw CID (very rough check)
+      if (/^[a-zA-Z0-9]+$/.test(s) && s.length > 20) {
+        return "https://ipfs.io/ipfs/" + s;
+      }
+
+      return "";
+    }
+
+    function safeDownloadFilename(it) {
+      const n = (it?.name || "").trim() || (it?.tokenURI || "").trim() || "document";
+      // укоротим
+      const base = (n.length > 40 ? n.slice(0, 40) : n);
+      // подчистим символы
+      return base.replace(/[^\p{L}\p{N}._-]+/gu, "_");
+    }
+
+    function downloadTextAsFile(text, filenameBase) {
+      const name = (filenameBase || "tokenURI").replace(/[^\p{L}\p{N}._-]+/gu, "_");
+      const blob = new Blob([String(text)], { type: "text/plain;charset=utf-8" });
+
+      const a = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      a.href = url;
+      a.download = name.endsWith(".txt") ? name : (name + ".txt");
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    }
+
+    function downloadByLink(href, filenameBase) {
+      const a = document.createElement("a");
+      a.href = href;
+      a.target = "_blank";
+      a.rel = "noreferrer";
+      a.download = filenameBase || "download";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    function handleDownload(it) {
+      // 1) Если есть CID — скачиваем как раньше по gateway
+      const cid = (it?.cid || "").trim();
+      const cidHref = ipfsToGateway(cid);
+      if (cidHref) {
+        downloadByLink(cidHref, safeDownloadFilename(it));
+        return;
+      }
+
+      // 2) Если есть downloadUrl — скачиваем по нему как раньше
+      const dlRaw = (it?.downloadUrl || "").trim();
+      const dlHref = ipfsToGateway(dlRaw) || dlRaw; // если это ipfs://, конвертнём
+      if (dlHref && /^https?:\/\//i.test(dlHref)) {
+        downloadByLink(dlHref, safeDownloadFilename(it));
+        return;
+      }
+
+      // 3) Иначе — делаем TXT и пишем туда tokenURI
+      const tokenURI = (it?.tokenURI || "").trim();
+      if (!tokenURI) {
+        alert("Нечего скачивать: отсутствуют cid/downloadUrl/tokenURI.");
+        return;
+      }
+
+      downloadTextAsFile(tokenURI, safeDownloadFilename(it));
+    }
+
     function escapeAttr(s) { return escapeHtml(s); }
 
     function safeName(item) {
@@ -932,95 +1092,61 @@
       try { return BigInt(s || "0"); } catch { return 0n; }
     }
 
-function renderMessageCards(container, items, errText, mode /* "received"|"sent" */) {
-  if (errText) {
-    container.innerHTML = "";
-    setEmpty("Ошибка: " + errText);
-    return;
-  }
+    function renderMessageCards(container, items, errText, mode /* "received"|"sent" */) {
+      if (errText) {
+        container.innerHTML = "";
+        setEmpty("Ошибка: " + errText);
+        return;
+      }
 
-  const sig = itemsSignature(items);
+      const sig = itemsSignature(items);
 
-  // ✅ Если данные те же самые, но контейнер пустой (мы его очистили на "Загрузка..."),
-  // то НЕ выходим — нужно перерисовать.
-  if (mode === "received") {
-    if (sig === lastReceivedSig && container.childElementCount > 0) return;
-    lastReceivedSig = sig;
-  } else {
-    if (sig === lastSentSig && container.childElementCount > 0) return;
-    lastSentSig = sig;
-  }
+      // ✅ Если данные те же самые, но контейнер пустой (мы его очистили на "Загрузка..."),
+      // то НЕ выходим — нужно перерисовать.
+      if (mode === "received") {
+        if (sig === lastReceivedSig && container.childElementCount > 0) return;
+        lastReceivedSig = sig;
+      } else {
+        if (sig === lastSentSig && container.childElementCount > 0) return;
+        lastSentSig = sig;
+      }
 
-  container.innerHTML = "";
+      container.innerHTML = "";
 
-  if (!items || items.length === 0) {
-    setEmpty("Сообщений нет.");
-    return;
-  }
+      if (!items || items.length === 0) {
+        setEmpty("Сообщений нет.");
+        return;
+      }
 
-  hideEmpty();
+      hideEmpty();
 
-  // helper: рисуем строку только если значение есть
-  const row = (label, value) => {
-    const v = (value ?? "").toString().trim();
-    if (!v) return "";
-    return `<div class="msg-meta-row"><span class="k">${escapeHtml(label)}:</span> <span class="v">${escapeHtml(v)}</span></div>`;
-  };
+      for (const it of items) {
+        const card = document.createElement("div");
+        card.className = "msg-card fade-in";
 
-  for (const it of items) {
-    const card = document.createElement("div");
-    card.className = "msg-card fade-in";
+        const name = safeName(it);
+        const btnId = "dl_" + Math.random().toString(16).slice(2);
 
-    const name = safeName(it);
-    const tokenId = (it.tokenId ?? "").toString();
-    const tokenURI = (it.tokenURI ?? "").toString();
-    const cid = (it.cid ?? "").toString();
-    const dl = (it.downloadUrl || it.tokenURI || "").toString();
+        card.innerHTML = `
+  <p class="msg-title">${escapeHtml(name)}</p>
 
-    // поля чаще встречаются в "sent" (сканер)
-    const txHash = (it.txHash ?? "").toString();
-    const blockNumber = (it.blockNumber ?? "").toString();
-    const sender = (it.sender ?? "").toString();
-    const recipient = (it.recipient ?? "").toString();
-    const bridge = (it.bridge ?? "").toString();
-    const network = (it.network ?? "").toString();
-    const method = (it.method ?? "").toString();
-    const nftContract = (it.nftContract ?? "").toString();
+  <div class="msg-meta">
+    <div><b>CID:</b> <span class="muted">${escapeHtml(it.cid || "")}</span></div>
+  </div>
 
-    // если name отсутствует — safeName уже заменит на tokenURI, но подстрахуемся:
-    const title = (name || tokenURI || "document.enc").toString();
+  <div class="msg-actions">
+    <button class="download" id="${btnId}" type="button">Скачать</button>
+  </div>
+`;
 
-    card.innerHTML = `
-      <p class="msg-title">${escapeHtml(title)}</p>
+        container.appendChild(card);
 
-      <div class="msg-meta">
-        ${row("TokenID", tokenId)}
-        ${row("TokenURI", tokenURI)}
-        ${row("CID", cid)}
-        ${row("DownloadURL", dl)}
+        document.getElementById(btnId).addEventListener("click", () => {
+          handleDownload(it);
+        });
 
-        ${row("TxHash", txHash)}
-        ${row("Block", blockNumber)}
-        ${row("Sender", sender)}
-        ${row("Recipient", recipient)}
-        ${row("Bridge", bridge)}
-        ${row("Network", network)}
-        ${row("Method", method)}
-        ${row("NFT Contract", nftContract)}
-      </div>
-
-      <div class="msg-actions">
-        <a class="download"
-           href="${escapeAttr(dl)}"
-           download="${escapeAttr(title)}"
-           target="_blank"
-           rel="noreferrer">Скачать</a>
-      </div>
-    `;
-
-    container.appendChild(card);
-  }
-}
+      }
+    }
 
 
     /* ==========================
@@ -1231,6 +1357,72 @@ function renderMessageCards(container, items, errText, mode /* "received"|"sent"
       startNftPolling();
     }
 
+    /* ==========================
+   ЕСИА: переход на Госуслуги
+========================== */
+    function esiaLogin() {
+      // Просто переходим на бэкенд — он сразу редиректит на ЕСИА
+      window.location.href = API_BASE + "/auth/esia/login";
+    }
+
+    /* ==========================
+       ЕСИА: привязка кошелька
+    ========================== */
+    async function linkWalletToEsia(esiaUserID) {
+      const linkStatus = $("linkStatus");
+      const targetChainId = Number($("chainSelectLink").value);
+
+      linkStatus.className = "status";
+      linkStatus.textContent = "Переключение сети...";
+      await switchChainIfNeeded(targetChainId);
+
+      linkStatus.textContent = "Подключение MetaMask...";
+      const { provider } = await connect();
+      const signer = await provider.getSigner();
+      const address = await signer.getAddress();
+
+      linkStatus.textContent = "Запрос nonce с сервера...";
+      const initRes = await fetch(API_BASE + "/auth/esia/wallet/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ esiaUserID, address, chainId: targetChainId })
+      });
+      const initBody = await initRes.json().catch(() => ({}));
+      if (!initRes.ok) throw new Error(initBody.error || "wallet link init failed");
+
+      linkStatus.textContent = "Ожидание подписи в MetaMask...";
+      const signature = await signer.signMessage(initBody.message);
+
+      linkStatus.textContent = "Проверка подписи...";
+      const verRes = await fetch(API_BASE + "/auth/esia/wallet/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          esiaUserID,
+          address,
+          chainId: targetChainId,
+          message: initBody.message,
+          signature
+        })
+      });
+      const verBody = await verRes.json().catch(() => ({}));
+      if (!verRes.ok) throw new Error(verBody.error || "wallet link verify failed");
+
+      // Успех — сохраняем JWT и открываем приложение
+      storage.setTokens(verBody);
+      setUserAddress(verBody.address || address);
+      sessionStorage.removeItem("esiaUserID");
+
+      selectedContact = null;
+      lastReceivedSig = "";
+      lastSentSig = "";
+      showApp();
+
+      await loadContacts().catch(() => { });
+      await loadReceived({ showLoading: true }).catch(() => { });
+      startNftPolling();
+    }
+
     async function logout() {
       stopNftPolling();
       storage.clear();
@@ -1330,10 +1522,9 @@ function renderMessageCards(container, items, errText, mode /* "received"|"sent"
 
       const form = new FormData();
       form.append("recipient_address", recipient);
-      form.append("payload", payloadFile);
-
       form.append("dept", String(dept));
       form.append("role", String(role));
+      form.append("payload", payloadFile);
 
       const res = await apiFetchWithRefresh("/files/send", { method: "POST", body: form });
       const body = await res.json().catch(() => ({}));
@@ -1361,18 +1552,63 @@ function renderMessageCards(container, items, errText, mode /* "received"|"sent"
       $("sendOk").style.display = "none";
     });
 
+
+    // ---------- Policy (dept/role) ----------
+    const ROLES_BY_DEPT = {
+      0: [
+        { label: "Начальник (0)", value: 0 },
+        { label: "Юрист (1)", value: 1 },
+      ],
+      1: [
+        { label: "Начальник (0)", value: 0 },
+        { label: "Разработчик (1)", value: 1 },
+      ],
+      2: [
+        { label: "Начальник (0)", value: 0 },
+        { label: "Специалист по маркетингу (1)", value: 1 },
+      ],
+    };
+
+    function fillRoleOptions(deptVal) {
+      const roleSel = $("roleSelect");
+      roleSel.innerHTML = '<option value="" selected disabled>— выбери роль —</option>';
+      const arr = ROLES_BY_DEPT[deptVal];
+      if (!arr) return;
+      for (const r of arr) {
+        const opt = document.createElement("option");
+        opt.value = String(r.value);
+        opt.textContent = r.label;
+        roleSel.appendChild(opt);
+      }
+      roleSel.disabled = false;
+    }
+
+    function applyPolicyUI() {
+      const on = !!$("policyToggle")?.checked;
+      const hint = $("policyHint");
+      if (hint) hint.textContent = on ? "Включено" : "Выключено (отправка без политики)";
+      $("deptSelect").disabled = !on;
+      $("roleSelect").disabled = !on;
+
+      if (!on) {
+        // сброс выбора, чтобы не было ложных значений
+        $("deptSelect").value = "";
+        $("roleSelect").innerHTML = '<option value="" selected disabled>— выбери роль —</option>';
+      }
+    }
+
+    $("deptSelect").addEventListener("change", () => {
+      const v = Number($("deptSelect").value);
+      fillRoleOptions(v);
+    });
+
+    $("policyToggle").addEventListener("change", applyPolicyUI);
+    applyPolicyUI();
+
     $("recipientSelect").addEventListener("change", () => {
       const v = $("recipientSelect").value;
       if (v) $("fRecipient").value = v;
     });
-
-    $("deptSelect").addEventListener("change", () => {
-      fillRolesForDept($("deptSelect").value);
-    });
-
-    // init roles once
-    fillRolesForDept($("deptSelect").value);
-
 
     async function doSendFlow() {
       $("sendErr").style.display = "none";
@@ -1386,11 +1622,20 @@ function renderMessageCards(container, items, errText, mode /* "received"|"sent"
       $("sendOk").style.display = "block";
       $("sendOk").textContent = "Загрузка на сервер...";
 
-      const dept = Number(($("deptSelect").value || "0"));
-      const role = Number(($("roleSelect").value || "0"));
+      const withPolicy = !!$("policyToggle")?.checked;
+
+      let dept = -1;
+      let role = -1;
+
+      if (withPolicy) {
+        dept = Number(($("deptSelect").value || ""));
+        role = Number(($("roleSelect").value || ""));
+        if (!Number.isFinite(dept) || !Number.isFinite(role)) {
+          throw new Error("Выбери департамент и роль (или выключи политику).");
+        }
+      }
 
       const out = await sendFileToBackend(recipient, selectedFile, dept, role);
-
 
       const nftAbiMinimal = [
         "function approve(address to, uint256 tokenId)",
@@ -1459,20 +1704,35 @@ function renderMessageCards(container, items, errText, mode /* "received"|"sent"
     /* ==========================
        Events
     ========================== */
-    $("btnConnect").onclick = () => connect().catch(err => { mmStatus.className = "status err"; mmStatus.textContent = err.message; });
-    $("btnLogin").onclick = async () => {
+    
+    // ЕСИА кнопки
+    $("btnEsiaLogin").onclick = () => esiaLogin();
+
+    $("btnLinkWallet").onclick = async () => {
+      const linkStatus = $("linkStatus");
       try {
-        $("btnLogin").disabled = true;
-        await siweLogin();
+        $("btnLinkWallet").disabled = true;
+        linkStatus.className = "status";
+        linkStatus.textContent = "Подключение...";
+
+        const esiaUserID = sessionStorage.getItem("esiaUserID");
+        if (!esiaUserID) throw new Error("ЕСИА-сессия не найдена. Войдите через Госуслуги заново.");
+
+        await linkWalletToEsia(esiaUserID);
       } catch (e) {
-        mmStatus.className = "status err";
-        mmStatus.textContent = e?.message || String(e);
+        linkStatus.className = "status err";
+        linkStatus.textContent = e?.message || String(e);
       } finally {
-        $("btnLogin").disabled = false;
+        $("btnLinkWallet").disabled = false;
       }
     };
 
     $("btnLogout").onclick = () => logout();
+    $("btnLinkCancel").onclick = () => {
+      sessionStorage.removeItem("esiaUserID");
+      hideWalletLink();
+      showAuth();
+    };
 
     btnShowReceived.onclick = async () => {
       selectedContact = null;
@@ -1488,9 +1748,6 @@ function renderMessageCards(container, items, errText, mode /* "received"|"sent"
       $("sendErr").style.display = "none";
       $("sendOk").style.display = "none";
       openModal("modalSend");
-      $("deptSelect").value = "0";
-      fillRolesForDept("0");
-      $("roleSelect").value = "0";
     };
     $("btnSendCancel").onclick = () => closeModal("modalSend");
 
@@ -1509,12 +1766,42 @@ function renderMessageCards(container, items, errText, mode /* "received"|"sent"
     $("modalSend").addEventListener("click", (e) => { if (e.target.id === "modalSend") closeModal("modalSend"); });
 
     /* ==========================
-       Boot
-    ========================== */
+   Boot
+========================== */
     (async () => {
       await loadSupportedChains();
-      try { await ensureMetaMask(); } catch { }
 
+      const params = new URLSearchParams(window.location.search);
+
+      // ЕСИА вернула ошибку
+      if (params.has("esia_error")) {
+        history.replaceState({}, "", window.location.pathname);
+        const authStatus = $("authStatus");
+        if (authStatus) {
+          authStatus.className = "status err";
+          authStatus.textContent = "Ошибка входа: " + decodeURIComponent(params.get("esia_error"));
+        }
+        showAuth();
+        return;
+      }
+
+      // ЕСИА успешно вернула OID — переходим к экрану привязки кошелька
+      if (params.has("esia_user_id")) {
+        const oid = decodeURIComponent(params.get("esia_user_id"));
+        history.replaceState({}, "", window.location.pathname);
+        sessionStorage.setItem("esiaUserID", oid);
+        showWalletLink(oid);
+        return;
+      }
+
+      // Пользователь вернулся на страницу — незавершённая ЕСИА-сессия
+      const pendingEsiaID = sessionStorage.getItem("esiaUserID");
+      if (pendingEsiaID) {
+        showWalletLink(pendingEsiaID);
+        return;
+      }
+
+      // Уже есть JWT — сразу в приложение
       const t = storage.getTokens();
       if (t?.accessToken) {
         showApp();
@@ -1522,11 +1809,16 @@ function renderMessageCards(container, items, errText, mode /* "received"|"sent"
         await loadContacts().catch(() => { });
         await loadReceived({ showLoading: true }).catch(() => { });
         startNftPolling();
-      } else {
-        showAuth();
+        return;
       }
+
+      // Нет ничего — показываем экран входа через ЕСИА
+      showAuth();
     })();
   </script>
+  <select id="chainSelect" style="display:none;"></select>
+  <span id="mmNet" style="display:none;"></span>
+  <p id="mmStatus" style="display:none;"></p>
 </body>
 
 </html>

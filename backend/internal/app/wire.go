@@ -26,8 +26,20 @@ func Wire(cfg config.Config) (*App, error) {
 	pg := postgres.NewProvider(cfg.PgDSN)
 
 	authSvc := auth.NewService(cfg)
+
+	// ЕСИА-сервис (если переменные не заданы — работаем без ЕСИА)
+	var esiaSvc *auth.EsiaService
+	if cfg.EsiaClientID != "" && cfg.EsiaURI != "" {
+		esiaSvc, err = auth.NewEsiaService(cfg)
+		if err != nil {
+			log.Warn("ЕСИА не инициализирована", "err", err)
+			esiaSvc = nil
+		}
+	}
+
 	ethSvc := eth.NewRPCService(cfg.RPCByChainID)
 	contactsRepo := postgres.NewContactsRepo(pg)
+	esiaLinkRepo := postgres.NewEsiaLinkRepo(pg) // ← из предыдущего шага
 
 	rpcProv := &scan.SimpleRPCProvider{RPCByNetwork: cfg.RPCByNetwork}
 	txScanner, err := scan.NewTxScanner(rpcProv)
@@ -35,9 +47,9 @@ func Wire(cfg config.Config) (*App, error) {
 		return nil, err
 	}
 
-	h := handlers.New(cfg, log, authSvc, contactsRepo, ethSvc, pg, watcher, txScanner)
+	h := handlers.New(cfg, log, authSvc, esiaSvc, esiaLinkRepo, contactsRepo, ethSvc, pg, watcher, txScanner)
 	mw := middleware.NewSet(cfg, authSvc)
-	http := server.New(cfg, log, h, mw, watcher)
+	httpSrv := server.New(cfg, log, h, mw, watcher)
 
-	return New(http), nil
+	return New(httpSrv), nil
 }

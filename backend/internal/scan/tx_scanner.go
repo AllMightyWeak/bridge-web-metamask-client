@@ -295,9 +295,6 @@ func (s *TxScanner) ScanTransfers(ctx context.Context, p TxScanParams) (ScanResp
 		if strings.TrimSpace(name) == "" {
 			name = strings.TrimSpace(tokenURI)
 		}
-		if strings.TrimSpace(name) == "" {
-			name = "document"
-		}
 
 		dl := tokenURIToHTTP(tokenURI)
 
@@ -453,21 +450,52 @@ func parseNameCid(tokenURI string) (name, cid string) {
 		return "", ""
 	}
 
-	// 1) JSON
+	// ✅ 0) Универсально: вытащить name/cid по последнему '?' (как в parseTokenURI)
+	// Работает даже если tokenURI — ABE строка/JSON/base64/hex и т.п.
+	if qi := strings.LastIndex(u, "?"); qi >= 0 && qi+1 < len(u) {
+		q := u[qi+1:]
+		for _, kv := range strings.Split(q, "&") {
+			kv = strings.TrimSpace(kv)
+
+			if strings.HasPrefix(kv, "name=") {
+				raw := strings.TrimPrefix(kv, "name=")
+				if v, err := url.QueryUnescape(raw); err == nil {
+					name = strings.TrimSpace(v)
+				} else {
+					name = strings.TrimSpace(raw)
+				}
+			}
+
+			if strings.HasPrefix(kv, "cid=") {
+				raw := strings.TrimPrefix(kv, "cid=")
+				if v, err := url.QueryUnescape(raw); err == nil {
+					cid = strings.TrimSpace(v)
+				} else {
+					cid = strings.TrimSpace(raw)
+				}
+			}
+		}
+
+		// Если нашли name/cid — можно уже не мучаться дальше.
+		// Но cid для ipfs:// удобнее взять из префикса, поэтому не return'им сразу,
+		// а просто продолжаем (name уже будет заполнен).
+	}
+
+	// 1) JSON (если это чистый JSON без ?query)
 	if strings.HasPrefix(u, "{") && strings.HasSuffix(u, "}") {
 		var m map[string]any
 		if json.Unmarshal([]byte(u), &m) == nil {
-			if v, ok := m["name"].(string); ok {
+			if v, ok := m["name"].(string); ok && strings.TrimSpace(name) == "" {
 				name = strings.TrimSpace(v)
 			}
-			if v, ok := m["cid"].(string); ok {
+			if v, ok := m["cid"].(string); ok && strings.TrimSpace(cid) == "" {
 				cid = strings.TrimSpace(v)
 			}
-			return
+			return name, cid
 		}
 	}
 
-	// 2) ipfs://CID?...name=
+	// 2) ipfs://CID?...name= (и другие варианты ipfs)
 	if strings.HasPrefix(u, "ipfs://") {
 		rest := strings.TrimPrefix(u, "ipfs://")
 		cidPart := rest
@@ -481,13 +509,16 @@ func parseNameCid(tokenURI string) (name, cid string) {
 			q = rest[i+1:]
 		}
 
-		if cidPart != "" {
+		// cid из ipfs://CID (если еще не пришел из ?cid=)
+		if strings.TrimSpace(cid) == "" && cidPart != "" {
 			cid = strings.TrimSpace(cidPart)
 		}
 
+		// дополнительно распарсим query (если есть)
 		for _, kv := range strings.Split(q, "&") {
 			kv = strings.TrimSpace(kv)
-			if strings.HasPrefix(kv, "name=") {
+
+			if strings.HasPrefix(kv, "name=") && strings.TrimSpace(name) == "" {
 				raw := strings.TrimPrefix(kv, "name=")
 				if v, err := url.QueryUnescape(raw); err == nil {
 					name = strings.TrimSpace(v)
@@ -495,7 +526,8 @@ func parseNameCid(tokenURI string) (name, cid string) {
 					name = strings.TrimSpace(raw)
 				}
 			}
-			if strings.HasPrefix(kv, "cid=") {
+
+			if strings.HasPrefix(kv, "cid=") && strings.TrimSpace(cid) == "" {
 				raw := strings.TrimPrefix(kv, "cid=")
 				if v, err := url.QueryUnescape(raw); err == nil {
 					cid = strings.TrimSpace(v)
@@ -505,16 +537,18 @@ func parseNameCid(tokenURI string) (name, cid string) {
 			}
 		}
 
+		// Если что-то нашли — выходим
 		if name != "" || cid != "" {
-			return
+			return name, cid
 		}
 	}
 
-	// 3) name=... cid=...
+	// 3) name=... cid=... в "плоских" форматах
 	parts := strings.FieldsFunc(u, func(r rune) bool { return r == '|' || r == ';' || r == '&' })
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
-		if strings.HasPrefix(part, "name=") {
+
+		if strings.HasPrefix(part, "name=") && strings.TrimSpace(name) == "" {
 			raw := strings.TrimPrefix(part, "name=")
 			if v, err := url.QueryUnescape(raw); err == nil {
 				name = strings.TrimSpace(v)
@@ -522,7 +556,8 @@ func parseNameCid(tokenURI string) (name, cid string) {
 				name = strings.TrimSpace(raw)
 			}
 		}
-		if strings.HasPrefix(part, "cid=") {
+
+		if strings.HasPrefix(part, "cid=") && strings.TrimSpace(cid) == "" {
 			raw := strings.TrimPrefix(part, "cid=")
 			if v, err := url.QueryUnescape(raw); err == nil {
 				cid = strings.TrimSpace(v)
@@ -532,7 +567,7 @@ func parseNameCid(tokenURI string) (name, cid string) {
 		}
 	}
 
-	return
+	return name, cid
 }
 
 func extractCID(tokenURI string) string {

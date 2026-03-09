@@ -22,7 +22,18 @@ type Config struct {
 	RPCByChainID  map[uint64]string   // chainId -> rpc url
 	RPCByNetwork  map[string]string
 
-	PgDSN           string
+	PgDSN string
+
+	// ЕСИА
+	EsiaURI         string // адрес ЕСИА: https://esia-portal1.test.gosuslugi.ru или https://esia.gosuslugi.ru
+	EsiaClientID    string // мнемоника ИС, выданная на тех. портале ЕСИА
+	EsiaRedirectURI string // redirect_uri, зарегистрированный на тех. портале ЕСИА
+	EsiaScope       string // запрашиваемые скоупы, например "openid fullname"
+	// КриптоПро для подписи запросов к ЕСИА
+	EsiaCspTestPath  string // путь к csptest: /opt/cprocsp/bin/csptest
+	EsiaCspContainer string // имя контейнера сертификата
+	EsiaCertHash     string // хеш сертификата (вывод cpverify)
+
 	BridgeByNetwork map[string]string
 
 	WNFTRpcURL      string
@@ -114,6 +125,14 @@ func LoadConfig() (Config, error) {
 		return cfg, err
 	}
 	cfg.RPCByNetwork = rpcByNetwork
+
+	cfg.EsiaURI = get("ESIA_URI")
+	cfg.EsiaClientID = get("ESIA_CLIENT_ID")
+	cfg.EsiaRedirectURI = get("ESIA_REDIRECT_URI")
+	cfg.EsiaScope = firstNonEmpty(get("ESIA_SCOPE"), "openid fullname")
+	cfg.EsiaCspTestPath = firstNonEmpty(get("ESIA_CSP_TEST_PATH"), "/opt/cprocsp/bin/csptest")
+	cfg.EsiaCspContainer = get("ESIA_CSP_CONTAINER")
+	cfg.EsiaCertHash = get("ESIA_CERT_HASH")
 
 	return cfg, nil
 }

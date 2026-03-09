@@ -1,7 +1,6 @@
 package nftscan
 
 import (
-	"fmt"
 	"net/url"
 	"strings"
 )
@@ -12,55 +11,60 @@ func parseTokenURI(raw string) (cleanURI string, name string, cid string) {
 		return "", "", ""
 	}
 
-	u, err := url.Parse(raw)
-	if err != nil {
-		fmt.Println("error here: ", err)
-		_, name, found := strings.Cut(raw, "?")
-		if found {
-			encodedName := strings.TrimPrefix(name, "name=")
-			filename, err := url.QueryUnescape(encodedName)
-			if err != nil {
-				fmt.Println("Error decoding:", err)
-				return "", "", ""
+	// ✅ 1) СНАЧАЛА достаем query руками (это работает даже для ABE-строк)
+	// Берем часть после ПЕРВОГО '?' (или можно после ПОСЛЕДНЕГО, если боишься '?' внутри шифртекста)
+	// Обычно у тебя '?name=' добавляется в конце, так что безопаснее брать ПОСЛЕДНИЙ '?'
+	if i := strings.LastIndex(raw, "?"); i >= 0 && i+1 < len(raw) {
+		q := raw[i+1:]
+		for _, kv := range strings.Split(q, "&") {
+			kv = strings.TrimSpace(kv)
+			if strings.HasPrefix(kv, "name=") {
+				v := strings.TrimPrefix(kv, "name=")
+				if dec, err := url.QueryUnescape(v); err == nil {
+					name = strings.TrimSpace(dec)
+				} else {
+					name = strings.TrimSpace(v)
+				}
 			}
-			return raw, filename, ""
+			if strings.HasPrefix(kv, "cid=") {
+				cid = strings.TrimSpace(strings.TrimPrefix(kv, "cid="))
+			}
 		}
-		// если не распарсилось — вернем как есть
-		return raw, "", ""
 	}
 
-	if u.Scheme == "ipfs" {
-		// ipfs://CID  => Host = CID
-		cid = strings.TrimSpace(u.Host)
-		if cid != "" {
+	// ✅ 2) Достаем cid/cleanURI из ipfs://CID (даже если дальше query)
+	// cut off query/fragment
+	base := raw
+	if j := strings.IndexAny(base, "?#"); j >= 0 {
+		base = base[:j]
+	}
+
+	if strings.HasPrefix(base, "ipfs://") {
+		rest := strings.TrimPrefix(base, "ipfs://")
+		rest = strings.TrimPrefix(rest, "/") // на всякий случай
+		if rest != "" {
+			// CID может быть до следующего '/'
+			if k := strings.Index(rest, "/"); k >= 0 {
+				cid = firstNonEmpty(cid, rest[:k])
+			} else {
+				cid = firstNonEmpty(cid, rest)
+			}
 			cleanURI = "ipfs://" + cid
 		} else {
-			// на всякий случай: ipfs:// + path
-			// (иногда кто-то пишет ipfs:/CID)
-			p := strings.TrimPrefix(u.Path, "/")
-			if p != "" {
-				cid = p
-				cleanURI = "ipfs://" + cid
-			} else {
-				cleanURI = raw
-			}
-		}
-
-		name = strings.TrimSpace(u.Query().Get("name"))
-		if name != "" {
-			if decoded, err := url.QueryUnescape(name); err == nil {
-				name = decoded
-			}
+			cleanURI = raw
 		}
 		return cleanURI, name, cid
 	}
 
-	// любой другой scheme — просто вернем raw
-	name = strings.TrimSpace(u.Query().Get("name"))
-	if name != "" {
-		if decoded, err := url.QueryUnescape(name); err == nil {
-			name = decoded
-		}
+	// 3) Если не ipfs://, то cleanURI не трогаем
+	// (для ABE tokenURI это будет зашифрованная строка)
+	return raw, name, cid
+}
+
+func firstNonEmpty(a, b string) string {
+	a = strings.TrimSpace(a)
+	if a != "" {
+		return a
 	}
-	return raw, name, ""
+	return strings.TrimSpace(b)
 }

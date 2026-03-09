@@ -3,10 +3,13 @@ module testMM/backend
 go 1.25.5
 
 require (
+	github.com/ddulesov/gogost v1.0.0
 	github.com/ethereum/go-ethereum v1.16.7
+	github.com/fentec-project/bn256 v0.0.0-20190726093940-0d0fc8bfeed0
 	github.com/gin-gonic/gin v1.11.0
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/joho/godotenv v1.5.1
+	github.com/ofstudio/go-api-epgu v0.5.0
 	github.com/spruceid/siwe-go v0.2.1
 )
 
@@ -15,8 +18,6 @@ require (
 	github.com/bytedance/sonic/loader v0.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/dchest/uniuri v1.2.0 // indirect
-	github.com/ddulesov/gogost v1.0.0 // indirect
-	github.com/fentec-project/bn256 v0.0.0-20190726093940-0d0fc8bfeed0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/gin-contrib/sse v1.1.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
@@ -71,7 +72,7 @@ require (
 	github.com/supranational/blst v0.3.16-0.20250831170142-f48500c1fdbe // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
-	golang.org/x/crypto v0.41.0 // indirect
+	golang.org/x/crypto v0.41.0
 	golang.org/x/sync v0.17.0 // indirect
 	golang.org/x/sys v0.36.0 // indirect
 )

@@ -17,6 +17,14 @@ func RegisterRoutes(r *gin.Engine, h *handlers.Handlers, mw *middleware.Set) {
 	auth.POST("/refresh", h.Refresh)
 	auth.POST("/logout", h.Logout)
 
+	esia := auth.Group("/esia")
+	esia.GET("/login", h.EsiaLogin)       // редирект на Госуслуги
+	esia.GET("/callback", h.EsiaCallback) // callback от Госуслуг
+
+	// ← ДОБАВИТЬ: привязка кошелька к ЕСИА-аккаунту
+	esia.POST("/wallet/init", h.EsiaWalletLinkInit)
+	esia.POST("/wallet/verify", h.EsiaWalletLinkVerify)
+
 	protected := r.Group("/")
 	protected.Use(mw.AccessJWT)
 

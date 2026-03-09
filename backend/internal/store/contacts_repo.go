@@ -19,3 +19,14 @@ type ContactsRepo interface {
 	List(ctx context.Context, userPubKey string) ([]Contact, error)
 	GetContactKeyInfo(ctx context.Context, userPubKey, contactAddr string) (ContactKeyInfo, error)
 }
+
+type EsiaLink struct {
+	EsiaUserID string
+	EthAddress string
+	ChainID    uint64
+}
+
+type EsiaLinkRepo interface {
+	SaveLink(ctx context.Context, esiaUserID, ethAddress string, chainID uint64) error
+	GetByEsiaID(ctx context.Context, esiaUserID string) (EsiaLink, error)
+}
